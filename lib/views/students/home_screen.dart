@@ -1,11 +1,32 @@
 import 'package:google_fonts/google_fonts.dart';
 import 'package:project_management/views/students/settings.dart';
-import 'package:project_management/views/teacher/upload.dart';
+import 'package:project_management/views/students/upload_files_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class Homepage extends StatelessWidget {
-  const Homepage({super.key});
+class StudentHome extends StatefulWidget {
+  const StudentHome({super.key});
+
+  @override
+  State<StudentHome> createState() => _StudentHomeState();
+}
+
+class _StudentHomeState extends State<StudentHome> {
+  String studentName = '';
+
+  @override
+  void initState() {
+    super.initState();
+    loadStudentName();
+  }
+
+  Future<void> loadStudentName() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      studentName = prefs.getString('studentName') ?? '';
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,11 +39,12 @@ class Homepage extends StatelessWidget {
         title: Padding(
           padding: const EdgeInsets.only(left: 10, top: 15),
           child: Text(
-            'Hey !',
+            studentName.isEmpty ? 'Hey!' : 'Hey, $studentName!',
+
             style: GoogleFonts.poppins(
               textStyle: const TextStyle(
                 color: Colors.black,
-                fontSize: 35,
+                fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -116,19 +138,19 @@ class Homepage extends StatelessWidget {
                   buildInfoBox(
                     'Trending Projects',
                     'assets/icons/growth.svg',
-                    Homepage(),
+                    StudentHome(),
                     context,
                   ),
                   buildInfoBox(
                     'Documentation support',
                     'assets/icons/agreement.svg',
-                    Homepage(),
+                    StudentHome(),
                     context,
                   ),
                   buildInfoBox(
                     'AI Assistant',
                     'assets/icons/chat.svg',
-                    Homepage(),
+                    StudentHome(),
                     context,
                   ),
                 ],
@@ -168,7 +190,11 @@ class Homepage extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 icon is String
-                    ? SvgPicture.asset(icon, height: 35, color: Color(0xFFE5A72E))
+                    ? SvgPicture.asset(
+                      icon,
+                      height: 35,
+                      color: Color(0xFFE5A72E),
+                    )
                     : Icon(icon, size: 35, color: Color(0xFFE5A72E)),
 
                 const SizedBox(height: 10),

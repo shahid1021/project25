@@ -23,17 +23,17 @@ class _UploadScreenState extends State<UploadScreen> {
       appBar: AppBar(
         leading: Padding(
           padding: const EdgeInsets.only(top: 15, left: 15),
-          child: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.black, size: 30),
+          // child: IconButton(
+          //   icon: const Icon(Icons.arrow_back, color: Colors.black, size: 30),
 
-            // 👉 Back Navigation Goes to Homepage
-            onPressed: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const Homepage()),
-              );
-            },
-          ),
+          //   // 👉 Back Navigation Goes to Homepage
+          //   onPressed: () {
+          //     Navigator.pushReplacement(
+          //       context,
+          //       MaterialPageRoute(builder: (context) => const StudentHome()),
+          //     );
+          //   },
+          // ),
         ),
         title: Padding(
           padding: const EdgeInsets.only(left: 0, top: 15),

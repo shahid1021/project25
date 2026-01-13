@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:project_management/views/auth/splash_screen.dart';
+import 'package:project_management/views/students/home_screen.dart';
+import 'package:project_management/views/students/profile.dart';
 import 'package:project_management/views/students/projects.dart';
+import 'package:project_management/views/teacher/pfp.dart';
+import 'package:project_management/views/teacher/upload.dart';
 
 void main() {
   runApp(const MyApp());

@@ -4,21 +4,21 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:project_management/views/auth/login_screen.dart';
 
-// ================= FETCH PROFILE =================
-import 'package:project_management/config/api_config.dart';
-
 Future<Map<String, dynamic>> fetchProfile() async {
   final prefs = await SharedPreferences.getInstance();
-  final email = prefs.getString("email");
+  final token = prefs.getString("token");
 
-  print("PROFILE EMAIL => $email");
+  if (token == null) {
+    throw Exception("No token found");
+  }
 
   final response = await http.get(
-    Uri.parse('${ApiConfig.baseUrl}/auth/me?email=$email'),
+    Uri.parse("https://localhost:44319/api/Auth/me"),
+    headers: {
+      "Authorization": "Bearer $token",
+      "Content-Type": "application/json",
+    },
   );
-
-  print("PROFILE STATUS => ${response.statusCode}");
-  print("PROFILE BODY => ${response.body}");
 
   if (response.statusCode == 200) {
     return jsonDecode(response.body);
@@ -27,15 +27,14 @@ Future<Map<String, dynamic>> fetchProfile() async {
   }
 }
 
-// ================= STUDENT PROFILE =================
-class StudentProfile extends StatefulWidget {
-  const StudentProfile({super.key});
+class TeacherProfile extends StatefulWidget {
+  const TeacherProfile({super.key});
 
   @override
-  State<StudentProfile> createState() => _StudentProfileState();
+  State<TeacherProfile> createState() => _TeacherProfileState();
 }
 
-class _StudentProfileState extends State<StudentProfile> {
+class _TeacherProfileState extends State<TeacherProfile> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -61,7 +60,7 @@ class _StudentProfileState extends State<StudentProfile> {
                   child: SingleChildScrollView(
                     child: Column(
                       children: [
-                        // ===== HEADER =====
+                        // Top curved section
                         Stack(
                           clipBehavior: Clip.none,
                           alignment: Alignment.bottomCenter,
@@ -107,7 +106,8 @@ class _StudentProfileState extends State<StudentProfile> {
 
                         const SizedBox(height: 60),
 
-                        // ===== NAME =====
+                        // Role
+                        // NAME
                         Text(
                           user['name'],
                           style: const TextStyle(
@@ -119,7 +119,7 @@ class _StudentProfileState extends State<StudentProfile> {
 
                         const SizedBox(height: 4),
 
-                        // ===== EMAIL =====
+                        // EMAIL
                         Text(
                           user['email'],
                           style: const TextStyle(
@@ -128,9 +128,18 @@ class _StudentProfileState extends State<StudentProfile> {
                           ),
                         ),
 
+                        const SizedBox(height: 8),
+
+                        // ROLE
+                        // Text(
+                        //   user['role'],
+                        //   style: const TextStyle(
+                        //     fontSize: 14,
+                        //     fontWeight: FontWeight.w600,
+                        //   ),
+                        // ),
                         const SizedBox(height: 30),
 
-                        // ===== INFO CARD =====
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                           child: Container(
@@ -140,14 +149,6 @@ class _StudentProfileState extends State<StudentProfile> {
                             ),
                             child: Column(
                               children: [
-                                // _buildActionTile(
-                                //   icon: Icons.lock,
-                                //   label: 'Change Password',
-                                //   onTap: () {
-                                //     // TODO: Change password page
-                                //   },
-                                // ),
-                                const Divider(height: 1, color: Colors.white),
                                 _buildInfoTile(
                                   icon: Icons.verified_user,
                                   label: 'Role',
@@ -162,7 +163,7 @@ class _StudentProfileState extends State<StudentProfile> {
                   ),
                 ),
 
-                // ===== LOGOUT =====
+                // Logout button
                 Padding(
                   padding: const EdgeInsets.only(
                     left: 120,
@@ -198,7 +199,6 @@ class _StudentProfileState extends State<StudentProfile> {
     );
   }
 
-  // ===== INFO TILE =====
   Widget _buildInfoTile({
     required IconData icon,
     required String label,
@@ -234,37 +234,6 @@ class _StudentProfileState extends State<StudentProfile> {
     );
   }
 
-  // ===== ACTION TILE =====
-  Widget _buildActionTile({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Icon(icon),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const Icon(Icons.chevron_right, size: 22),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ===== LOGOUT POPUP =====
   void _showLogoutPopup(BuildContext context) {
     showDialog(
       context: context,

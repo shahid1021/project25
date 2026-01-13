@@ -4,6 +4,9 @@ import 'package:project_management/services/auth_service.dart';
 import 'package:project_management/views/auth/navigation.dart';
 import 'package:project_management/views/auth/register.dart';
 import 'package:project_management/views/auth/forgot_password.dart';
+import 'package:project_management/views/students/home_screen.dart';
+import 'package:project_management/views/teacher/home.dart';
+import 'package:project_management/views/teacher/nav.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -188,56 +191,152 @@ class _LoginPageState extends State<LoginPage> {
                         width: 200,
                         height: 50,
                         child: ElevatedButton(
+                          // onPressed:
+                          //     _isButtonActive
+                          //         ? () async {
+                          //           try {
+                          //             String result = await AuthService().login(
+                          //               _emailController.text.trim(),
+                          //               _passwordController.text.trim(),
+                          //             );
+
+                          //             if (result == "Student") {
+                          //               Navigator.pushReplacement(
+                          //                 context,
+                          //                 MaterialPageRoute(
+                          //                   builder: (_) => MainNavigation(),
+                          //                 ),
+                          //               );
+                          //             } else if (result == "Teacher") {
+                          //               Navigator.pushReplacement(
+                          //                 context,
+                          //                 MaterialPageRoute(
+                          //                   builder: (_) => NavigationPage(),
+                          //                 ),
+                          //               );
+                          //             } else if (result == "no_account") {
+                          //               ScaffoldMessenger.of(
+                          //                 context,
+                          //               ).showSnackBar(
+                          //                 SnackBar(
+                          //                   content: Text(
+                          //                     "Please register first",
+                          //                   ),
+                          //                 ),
+                          //               );
+                          //             } else if (result == "wrong_password") {
+                          //               ScaffoldMessenger.of(
+                          //                 context,
+                          //               ).showSnackBar(
+                          //                 SnackBar(
+                          //                   content: Text("Incorrect password"),
+                          //                 ),
+                          //               );
+                          //             } else {
+                          //               ScaffoldMessenger.of(
+                          //                 context,
+                          //               ).showSnackBar(
+                          //                 SnackBar(
+                          //                   content: Text("Login failed"),
+                          //                 ),
+                          //               );
+                          //             }
+                          //           } catch (e) {
+                          //             ScaffoldMessenger.of(
+                          //               context,
+                          //             ).showSnackBar(
+                          //               SnackBar(
+                          //                 content: Text(
+                          //                   "An error occurred: $e",
+                          //                 ),
+                          //               ),
+                          //             );
+                          //           }
+                          //         }
+                          //         : null,
                           onPressed:
                               _isButtonActive
                                   ? () async {
-                                    String result = await AuthService().login(
-                                      _emailController.text.trim(),
-                                      _passwordController.text.trim(),
-                                    );
+                                    print('LOGIN BUTTON CLICKED');
 
-                                    if (result == "success") {
-                                      Navigator.pushReplacement(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => MainNavigation(),
-                                        ),
+                                    try {
+                                      print('CALLING LOGIN API...');
+                                      final result = await AuthService().login(
+                                        _emailController.text.trim(),
+                                        _passwordController.text.trim(),
                                       );
-                                    } else if (result == "no_account") {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            "No account found. Please register.",
+                                      print('LOGIN RESULT => $result');
+
+                                      if (result == "Student") {
+                                        Navigator.pushReplacement(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => MainNavigation(),
                                           ),
-                                        ),
-                                      );
-                                    } else if (result == "wrong_password") {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text("Incorrect password."),
-                                        ),
-                                      );
-                                    } else {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            "Server error. Try again.",
+                                        );
+                                      } else if (result == "Teacher") {
+                                        Navigator.pushReplacement(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => NavigationPage(),
                                           ),
-                                        ),
+                                        );
+                                      } else if (result == "no_account") {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              "Please register first",
+                                            ),
+                                          ),
+                                        );
+                                      } else if (result == "wrong_password") {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text("Incorrect password"),
+                                          ),
+                                        );
+                                      } else {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text("Login failed"),
+                                          ),
+                                        );
+                                      }
+                                    } catch (e, s) {
+                                      print('LOGIN EXCEPTION => $e');
+                                      print(s);
+
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(content: Text("Error: $e")),
                                       );
                                     }
                                   }
                                   : null,
 
-                          child: Text(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                _isButtonActive
+                                    ? Color(0xFFE5A72E)
+                                    : Colors.grey,
+                            foregroundColor: Colors.black,
+                            disabledBackgroundColor: Colors.grey,
+                            disabledForegroundColor: Colors.white70,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                          ),
+
+                          child: const Text(
                             "Log In",
-                            style: TextStyle(color: Colors.white, fontSize: 18),
+                            style: TextStyle(fontSize: 18),
                           ),
                         ),
                       ),

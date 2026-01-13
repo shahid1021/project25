@@ -45,6 +45,10 @@ class _RegisterpageState extends State<Registerpage> {
   // ***** NEW: Register Button Active State *****
   bool _isRegisterButtonActive = false;
 
+  // SHOW / HIDE UI FLAGS
+  bool _showPasswordRules = false;
+  bool _showPasswordMatchText = false;
+
   @override
   void initState() {
     super.initState();
@@ -85,22 +89,23 @@ class _RegisterpageState extends State<Registerpage> {
 
   // VALIDATE PASSWORD RULES
   void _validatePassword(String password) {
-    _hasUpper = password.contains(RegExp(r'[A-Z]'));
-    _hasLower = password.contains(RegExp(r'[a-z]'));
-    _hasDigit = password.contains(RegExp(r'[0-9]'));
-    _hasSymbol = password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
-    _hasMinLength = password.length >= 6;
-
-    _isPasswordValid =
-        _hasUpper && _hasLower && _hasDigit && _hasSymbol && _hasMinLength;
-
-    _passwordsMatch = password == _confirmpasswordController.text;
-
     setState(() {
-      _showPasswordEye = password.isNotEmpty || _passwordFocus.hasFocus;
+      _showPasswordRules = true; // ✅ REQUIRED
+
+      _hasUpper = password.contains(RegExp(r'[A-Z]'));
+      _hasLower = password.contains(RegExp(r'[a-z]'));
+      _hasDigit = password.contains(RegExp(r'[0-9]'));
+      _hasSymbol = password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
+      _hasMinLength = password.length >= 6;
+
+      _isPasswordValid =
+          _hasUpper && _hasLower && _hasDigit && _hasSymbol && _hasMinLength;
+
+      _passwordsMatch = password == _confirmpasswordController.text;
+      _showPasswordMatchText = true;
     });
 
-    _updateRegisterButtonState(); // ***** NEW *****
+    _updateRegisterButtonState();
   }
 
   // RULE BUILDER FOR GREEN/RED CHECKMARK
@@ -206,7 +211,7 @@ class _RegisterpageState extends State<Registerpage> {
                           const SizedBox(height: 10),
 
                           // PASSWORD RULE CHECKLIST
-                          if (_passwordController.text.isNotEmpty)
+                          if (_showPasswordRules)
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -261,7 +266,7 @@ class _RegisterpageState extends State<Registerpage> {
                           ),
 
                           // PASSWORD MATCH MESSAGE
-                          if (_confirmpasswordController.text.isNotEmpty)
+                          if (_showPasswordMatchText)
                             Padding(
                               padding: const EdgeInsets.only(top: 8),
                               child: Text(
@@ -288,32 +293,29 @@ class _RegisterpageState extends State<Registerpage> {
                               onPressed:
                                   _isRegisterButtonActive
                                       ? () async {
-                                        final response = await AuthService()
-                                            .register(
-                                              firstName:
-                                                  _firstnameController.text
-                                                      .trim(),
-                                              lastName:
-                                                  _lastnameController.text
-                                                      .trim(),
-                                              email:
-                                                  _emailController.text.trim(),
-                                              password:
-                                                  _passwordController.text
-                                                      .trim(),
-                                            );
+                                        final bool
+                                        success = await AuthService().register(
+                                          firstName:
+                                              _firstnameController.text.trim(),
+                                          lastName:
+                                              _lastnameController.text.trim(),
+                                          email: _emailController.text.trim(),
+                                          password:
+                                              _passwordController.text.trim(),
+                                        );
 
-                                        if (response.contains("successful")) {
+                                        if (success == true) {
                                           ScaffoldMessenger.of(
                                             context,
                                           ).showSnackBar(
-                                            SnackBar(
+                                            const SnackBar(
                                               content: Text(
-                                                "Registration successful!",
+                                                "Registration successful",
                                               ),
                                             ),
                                           );
-                                          Navigator.push(
+
+                                          Navigator.pushReplacement(
                                             context,
                                             MaterialPageRoute(
                                               builder: (_) => const LoginPage(),
@@ -323,17 +325,19 @@ class _RegisterpageState extends State<Registerpage> {
                                           ScaffoldMessenger.of(
                                             context,
                                           ).showSnackBar(
-                                            SnackBar(content: Text(response)),
+                                            const SnackBar(
+                                              content: Text(
+                                                "Registration failed",
+                                              ),
+                                            ),
                                           );
                                         }
                                       }
                                       : null,
+
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color.fromARGB(
-                                  255,
-                                  231,
-                                  185,
-                                  20,
+                                backgroundColor: const Color(
+                                  0xFFE5A72E,
                                 ), // ACTIVE COLOR
                                 disabledBackgroundColor: const Color.fromARGB(
                                   255,

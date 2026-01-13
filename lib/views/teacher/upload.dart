@@ -2,14 +2,14 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-class UploadFilesPage extends StatefulWidget {
-  const UploadFilesPage({super.key});
+class UploadPage extends StatefulWidget {
+  const UploadPage({super.key});
 
   @override
-  State<UploadFilesPage> createState() => _UploadFilesPageState();
+  State<UploadPage> createState() => _UploadPageState();
 }
 
-class _UploadFilesPageState extends State<UploadFilesPage> {
+class _UploadPageState extends State<UploadPage> {
   List<String> uploadedFiles = [];
 
   Future<bool> requestStoragePermission() async {

@@ -4,23 +4,24 @@ import 'package:project_management/views/students/notfication_std.dart';
 import 'package:project_management/views/students/profile.dart';
 import 'package:project_management/views/students/projects.dart';
 import 'package:project_management/views/teacher/home.dart';
+import 'package:project_management/views/teacher/pfp.dart';
 
-class MainNavigation extends StatefulWidget {
-  const MainNavigation({super.key});
+class NavigationPage extends StatefulWidget {
+  const NavigationPage({super.key});
 
   @override
-  State<MainNavigation> createState() => _MainNavigationState();
+  State<NavigationPage> createState() => _NavigationPageState();
 }
 
-class _MainNavigationState extends State<MainNavigation> {
+class _NavigationPageState extends State<NavigationPage> {
   int currentIndex = 0;
 
   final List<Widget> screens = [
-    StudentHome(),
-    // TeacherHome(),
+    // StudentHome(),
+    TeacherHome(),
     UploadScreen(),
     NotificationsScreen(),
-    StudentProfile(),
+    TeacherProfile(),
   ];
 
   final Duration animDuration = Duration(milliseconds: 300);

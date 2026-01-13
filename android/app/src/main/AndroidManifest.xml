@@ -1,25 +1,28 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.project_management">
 
-    <!-- =============================== -->
-    <!-- STORAGE PERMISSIONS (REQUIRED) -->
-    <!-- =============================== -->
+    <!-- STORAGE PERMISSIONS -->
 
-    <!-- Android 10 and below -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28"/>
 
-    <!-- Android 13+ (API 33 and above) -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
 
-
     <application
-        android:label="project_management"
-        android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+    android:label="project_management"
+    android:name="${applicationName}"
+    android:icon="@mipmap/ic_launcher"
+    android:usesCleartextTraffic="true">
+
+
+        <!-- DISABLE IMPELLER (FIXES CRASH) -->
+        <meta-data
+            android:name="flutter.experimental.disable-impeller"
+            android:value="true" />
 
         <activity
             android:name=".MainActivity"
@@ -47,14 +50,5 @@
             android:value="2" />
 
     </application>
-
-
-    <!-- Package visibility for text processing -->
-    <queries>
-        <intent>
-            <action android:name="android.intent.action.PROCESS_TEXT"/>
-            <data android:mimeType="text/plain"/>
-        </intent>
-    </queries>
 
 </manifest>
