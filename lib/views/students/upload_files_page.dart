@@ -1,10 +1,15 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:http_parser/http_parser.dart';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:project_management/config/api_config.dart';
+import 'package:open_file/open_file.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path_provider/path_provider.dart';
 
 class UploadFilesPage extends StatefulWidget {
   const UploadFilesPage({super.key});
@@ -16,9 +21,77 @@ class UploadFilesPage extends StatefulWidget {
 class _UploadFilesPageState extends State<UploadFilesPage> {
   File? selectedFile;
   bool isUploading = false;
+  bool isLoading = true;
+  List<dynamic> uploadedFiles = [];
 
-  // TEMP list – later replaced with API data
-  final List<String> uploadedFiles = [];
+  @override
+  void initState() {
+    super.initState();
+    syncExistingFiles();
+    fetchUploadedFiles();
+  }
+
+  /// Sync existing files to database
+  Future<void> syncExistingFiles() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      if (token == null) return;
+
+      final uri = Uri.parse('${ApiConfig.baseUrl}/Projects/1/sync-files');
+
+      final response = await http.post(
+        uri,
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      print('SYNC STATUS => ${response.statusCode}');
+      print('SYNC BODY => ${response.body}');
+    } catch (e) {
+      print('Sync error: $e');
+    }
+  }
+
+  /// Fetch uploaded files from backend
+  Future<void> fetchUploadedFiles() async {
+    setState(() => isLoading = true);
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      if (token == null) {
+        throw 'User not authenticated';
+      }
+
+      final uri = Uri.parse('${ApiConfig.baseUrl}/Projects/1/files');
+
+      final response = await http.get(
+        uri,
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      print('FETCH FILES STATUS => ${response.statusCode}');
+      print('FETCH FILES BODY => ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          uploadedFiles = data['files'] ?? [];
+        });
+      } else if (response.statusCode == 401) {
+        _showMessage('Session expired. Please log in again.');
+      } else {
+        _showMessage('Failed to load files');
+      }
+    } catch (e) {
+      print('Error fetching files: $e');
+      _showMessage('Failed to load files');
+    } finally {
+      setState(() => isLoading = false);
+    }
+  }
 
   /// Pick PDF file
   Future<void> pickFile() async {
@@ -49,8 +122,8 @@ class _UploadFilesPageState extends State<UploadFilesPage> {
       if (token == null) {
         throw 'User not authenticated';
       }
-      // final uri = Uri.parse('http://192.168.1.64:5171/api/projects/upload');
-      final uri = Uri.parse('http://192.168.1.65:5171/api/projects/1/upload');
+
+      final uri = Uri.parse('${ApiConfig.baseUrl}/projects/1/upload');
 
       final request = http.MultipartRequest('POST', uri);
 
@@ -75,11 +148,13 @@ class _UploadFilesPageState extends State<UploadFilesPage> {
 
       if (response.statusCode == 200) {
         setState(() {
-          uploadedFiles.add(selectedFile!.path.split('/').last);
           selectedFile = null;
         });
 
         _showMessage('Upload successful');
+
+        // Refresh the file list
+        fetchUploadedFiles();
       } else {
         _showMessage('Upload failed (${response.statusCode})');
       }
@@ -90,11 +165,93 @@ class _UploadFilesPageState extends State<UploadFilesPage> {
     }
   }
 
-  /// Delete locally (API later)
-  void deleteFile(int index) {
-    setState(() {
-      uploadedFiles.removeAt(index);
-    });
+  /// Delete file from backend
+  Future<void> deleteFile(int index) async {
+    final file = uploadedFiles[index];
+    final fileName = file['fileName'];
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      if (token == null) {
+        throw 'User not authenticated';
+      }
+
+      final uri = Uri.parse('${ApiConfig.baseUrl}/Projects/1/files/$fileName');
+
+      final response = await http.delete(
+        uri,
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      print('DELETE STATUS => ${response.statusCode}');
+      print('DELETE BODY => ${response.body}');
+
+      if (response.statusCode == 200) {
+        setState(() {
+          uploadedFiles.removeAt(index);
+        });
+        _showMessage('File deleted successfully');
+      } else {
+        _showMessage('Failed to delete file');
+      }
+    } catch (e) {
+      print('Error deleting file: $e');
+      _showMessage('Error: ${e.toString()}');
+    }
+  }
+
+  /// View/Download file
+  Future<void> viewFile(int index) async {
+    final file = uploadedFiles[index];
+    final fileName = file['fileName'];
+    final displayName = file['displayName'] ?? 'file.pdf';
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      if (token == null) {
+        throw 'User not authenticated';
+      }
+
+      _showMessage('Downloading $displayName...');
+
+      final url = '${ApiConfig.baseUrl}/Projects/1/files/$fileName/download';
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      print('Download status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        // Get temporary directory
+        final dir = await getTemporaryDirectory();
+        final filePath = '${dir.path}/$displayName';
+
+        // Save file
+        final fileToSave = File(filePath);
+        await fileToSave.writeAsBytes(response.bodyBytes);
+
+        print('File saved to: $filePath');
+        _showMessage('Opening file...');
+
+        // Open file
+        final result = await OpenFile.open(filePath);
+
+        if (result.type != ResultType.done) {
+          _showMessage('Could not open file: ${result.message}');
+        }
+      } else {
+        _showMessage('Failed to download file');
+      }
+    } catch (e) {
+      print('Error viewing file: $e');
+      _showMessage('Error: ${e.toString()}');
+    }
   }
 
   void _showMessage(String msg) {
@@ -104,7 +261,18 @@ class _UploadFilesPageState extends State<UploadFilesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Upload Files')),
+      appBar: AppBar(
+        title: const Text('Upload Files'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () async {
+              await syncExistingFiles();
+              await fetchUploadedFiles();
+            },
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -136,31 +304,40 @@ class _UploadFilesPageState extends State<UploadFilesPage> {
 
             Expanded(
               child:
-                  uploadedFiles.isEmpty
+                  isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : uploadedFiles.isEmpty
                       ? const Center(child: Text('No files uploaded yet'))
                       : ListView.builder(
                         itemCount: uploadedFiles.length,
                         itemBuilder: (context, index) {
+                          final file = uploadedFiles[index];
+                          final displayName =
+                              file['displayName'] ??
+                              file['fileName'] ??
+                              'Unknown';
+                          final fileSize = file['size'] ?? 0;
+
                           return ListTile(
-                            leading: const Icon(Icons.picture_as_pdf),
-                            title: Text(uploadedFiles[index]),
-                            trailing: PopupMenuButton(
-                              itemBuilder:
-                                  (_) => const [
-                                    PopupMenuItem(
-                                      value: 'view',
-                                      child: Text('View Details'),
-                                    ),
-                                    PopupMenuItem(
-                                      value: 'delete',
-                                      child: Text('Delete'),
-                                    ),
-                                  ],
-                              onSelected: (value) {
-                                if (value == 'delete') {
-                                  deleteFile(index);
-                                }
-                              },
+                            onTap: () => viewFile(index),
+                            leading: const Icon(
+                              Icons.picture_as_pdf,
+                              color: Colors.red,
+                              size: 40,
+                            ),
+                            title: Text(
+                              displayName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            subtitle: Text(
+                              '${(fileSize / 1024).toStringAsFixed(2)} KB',
+                              style: TextStyle(color: Colors.grey[600]),
+                            ),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () => deleteFile(index),
                             ),
                           );
                         },

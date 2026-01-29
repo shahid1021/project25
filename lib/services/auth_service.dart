@@ -11,7 +11,7 @@ class AuthService {
     required String email,
     required String password,
   }) async {
-    final uri = Uri.parse('${ApiConfig.baseUrl}/auth/register');
+    final uri = Uri.parse('${ApiConfig.baseUrl}/User/register');
 
     print('REGISTER URL => $uri');
 
@@ -34,7 +34,7 @@ class AuthService {
 
   // LOGIN
   Future<String> login(String email, String password) async {
-    final uri = Uri.parse('${ApiConfig.baseUrl}/auth/login');
+    final uri = Uri.parse('${ApiConfig.baseUrl}/User/login');
 
     print('LOGIN URL => $uri');
 
@@ -52,6 +52,7 @@ class AuthService {
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('token', data['token']);
+      await prefs.setString('role', data['role']);
       await prefs.setString('studentName', (data['name'] ?? '').toString());
       await prefs.setString('email', email);
 

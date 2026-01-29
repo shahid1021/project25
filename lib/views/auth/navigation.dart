@@ -2,7 +2,7 @@ import 'package:project_management/views/students/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:project_management/views/students/notfication_std.dart';
 import 'package:project_management/views/students/profile.dart';
-import 'package:project_management/views/students/projects.dart';
+import 'package:project_management/views/students/upload_files_page.dart';
 import 'package:project_management/views/teacher/home.dart';
 
 class MainNavigation extends StatefulWidget {
@@ -15,13 +15,20 @@ class MainNavigation extends StatefulWidget {
 class _MainNavigationState extends State<MainNavigation> {
   int currentIndex = 0;
 
-  final List<Widget> screens = [
-    StudentHome(),
-    // TeacherHome(),
-    UploadScreen(),
-    NotificationsScreen(),
-    StudentProfile(),
-  ];
+  List<Widget> getScreens() {
+    return [
+      StudentHome(
+        onNavigate: (index) {
+          setState(() {
+            currentIndex = index;
+          });
+        },
+      ),
+      UploadFilesPage(),
+      NotificationsScreen(),
+      StudentProfile(),
+    ];
+  }
 
   final Duration animDuration = Duration(milliseconds: 300);
 
@@ -37,7 +44,7 @@ class _MainNavigationState extends State<MainNavigation> {
     double iconSize = width * 0.06; // 6% of width
 
     return Scaffold(
-      body: screens[currentIndex],
+      body: getScreens()[currentIndex],
 
       bottomNavigationBar: Container(
         decoration: BoxDecoration(

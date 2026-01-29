@@ -14,7 +14,7 @@ Future<Map<String, dynamic>> fetchProfile() async {
   print("PROFILE EMAIL => $email");
 
   final response = await http.get(
-    Uri.parse('${ApiConfig.baseUrl}/auth/me?email=$email'),
+    Uri.parse('${ApiConfig.baseUrl}/User/me?email=$email'),
   );
 
   print("PROFILE STATUS => ${response.statusCode}");

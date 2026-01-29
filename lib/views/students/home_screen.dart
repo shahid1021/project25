@@ -6,7 +6,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class StudentHome extends StatefulWidget {
-  const StudentHome({super.key});
+  final Function(int)? onNavigate;
+  const StudentHome({super.key, this.onNavigate});
 
   @override
   State<StudentHome> createState() => _StudentHomeState();
@@ -36,6 +37,7 @@ class _StudentHomeState extends State<StudentHome> {
         scrolledUnderElevation: 0,
         backgroundColor: Colors.white,
         elevation: 0,
+        automaticallyImplyLeading: false,
         title: Padding(
           padding: const EdgeInsets.only(left: 10, top: 15),
           child: Text(
@@ -132,25 +134,26 @@ class _StudentHomeState extends State<StudentHome> {
                   buildInfoBox(
                     'Upload files',
                     Icons.upload_file,
-                    UploadFilesPage(),
+                    isNavigateToTab: true,
+                    tabIndex: 1,
                     context,
                   ),
                   buildInfoBox(
                     'Trending Projects',
-                    'assets/icons/growth.svg',
-                    StudentHome(),
+                    Icons.trending_up,
+                    navigateTo: StudentHome(),
                     context,
                   ),
                   buildInfoBox(
                     'Documentation support',
-                    'assets/icons/agreement.svg',
-                    StudentHome(),
+                    Icons.description,
+                    navigateTo: StudentHome(),
                     context,
                   ),
                   buildInfoBox(
                     'AI Assistant',
-                    'assets/icons/chat.svg',
-                    StudentHome(),
+                    Icons.chat_bubble_outline,
+                    navigateTo: StudentHome(),
                     context,
                   ),
                 ],
@@ -165,15 +168,21 @@ class _StudentHomeState extends State<StudentHome> {
   Widget buildInfoBox(
     String title,
     dynamic icon,
-    Widget navigateTo,
-    BuildContext context,
-  ) {
+    BuildContext context, {
+    bool isNavigateToTab = false,
+    int? tabIndex,
+    Widget? navigateTo,
+  }) {
     return InkWell(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => navigateTo),
-        );
+        if (isNavigateToTab && tabIndex != null && widget.onNavigate != null) {
+          widget.onNavigate!(tabIndex);
+        } else if (navigateTo != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => navigateTo),
+          );
+        }
       },
       borderRadius: BorderRadius.circular(12),
       child: Padding(

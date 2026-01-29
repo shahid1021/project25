@@ -2,11 +2,10 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:project_management/config/api_config.dart';
 
 class ProjectService {
-  final String baseUrl = "http://192.168.10.54:44319/api/Projects";
-  // Example:
-  // final String baseUrl = "http://192.168.1.64:44319/api/Projects";
+  final String baseUrl = "${ApiConfig.baseUrl}/projects";
 
   Future<bool> uploadPdf(int projectId) async {
     // Pick PDF

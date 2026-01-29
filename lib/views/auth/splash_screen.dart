@@ -1,5 +1,8 @@
 import 'package:project_management/views/auth/login_screen.dart';
+import 'package:project_management/views/auth/navigation.dart';
+import 'package:project_management/views/teacher/nav.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 
 class SplashScreen extends StatefulWidget {
@@ -13,13 +16,43 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    // Navigate after 3 seconds
+    // Check login status after 3 seconds
     Timer(const Duration(seconds: 3), () {
+      _checkLoginStatus();
+    });
+  }
+
+  Future<void> _checkLoginStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    final role = prefs.getString('role');
+
+    if (token != null && token.isNotEmpty) {
+      // User is logged in, navigate based on role
+      if (role == 'Student') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MainNavigation()),
+        );
+      } else if (role == 'Teacher') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const NavigationPage()),
+        );
+      } else {
+        // Unknown role, go to login
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginPage()),
+        );
+      }
+    } else {
+      // Not logged in, go to login page
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const LoginPage()),
       );
-    });
+    }
   }
 
   @override
