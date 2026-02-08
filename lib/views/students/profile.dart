@@ -3,22 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:project_management/views/auth/login_screen.dart';
-
-// ================= FETCH PROFILE =================
 import 'package:project_management/config/api_config.dart';
 
+// ================= FETCH PROFILE =================
 Future<Map<String, dynamic>> fetchProfile() async {
   final prefs = await SharedPreferences.getInstance();
   final email = prefs.getString("email");
 
-  print("PROFILE EMAIL => $email");
-
   final response = await http.get(
     Uri.parse('${ApiConfig.baseUrl}/User/me?email=$email'),
   );
-
-  print("PROFILE STATUS => ${response.statusCode}");
-  print("PROFILE BODY => ${response.body}");
 
   if (response.statusCode == 200) {
     return jsonDecode(response.body);
@@ -38,8 +32,11 @@ class StudentProfile extends StatefulWidget {
 class _StudentProfileState extends State<StudentProfile> {
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final width = size.width;
+    final height = size.height;
+
     return Scaffold(
-      extendBodyBehindAppBar: true,
       backgroundColor: Colors.white,
       body: SafeArea(
         child: FutureBuilder(
@@ -63,11 +60,11 @@ class _StudentProfileState extends State<StudentProfile> {
                       children: [
                         // ===== HEADER =====
                         Stack(
-                          clipBehavior: Clip.none,
                           alignment: Alignment.bottomCenter,
+                          clipBehavior: Clip.none,
                           children: [
                             Container(
-                              height: 200,
+                              height: height * 0.25,
                               decoration: const BoxDecoration(
                                 color: Color(0xFFE5A72E),
                                 borderRadius: BorderRadius.only(
@@ -77,9 +74,9 @@ class _StudentProfileState extends State<StudentProfile> {
                               ),
                             ),
                             Positioned(
-                              bottom: -50,
+                              bottom: -height * 0.06,
                               child: Container(
-                                padding: const EdgeInsets.all(4),
+                                padding: EdgeInsets.all(width * 0.01),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   shape: BoxShape.circle,
@@ -91,13 +88,13 @@ class _StudentProfileState extends State<StudentProfile> {
                                     ),
                                   ],
                                 ),
-                                child: const CircleAvatar(
-                                  radius: 45,
+                                child: CircleAvatar(
+                                  radius: width * 0.11,
                                   backgroundColor: Colors.white,
                                   child: Icon(
                                     Icons.person,
-                                    size: 80,
-                                    color: Color(0xFFE5A72E),
+                                    size: width * 0.18,
+                                    color: const Color(0xFFE5A72E),
                                   ),
                                 ),
                               ),
@@ -105,53 +102,48 @@ class _StudentProfileState extends State<StudentProfile> {
                           ],
                         ),
 
-                        const SizedBox(height: 60),
+                        SizedBox(height: height * 0.08),
 
                         // ===== NAME =====
                         Text(
                           user['name'],
-                          style: const TextStyle(
-                            fontSize: 24,
+                          style: TextStyle(
+                            fontSize: width * 0.06,
                             fontWeight: FontWeight.bold,
-                            color: Colors.black87,
                           ),
                         ),
 
-                        const SizedBox(height: 4),
+                        SizedBox(height: height * 0.005),
 
                         // ===== EMAIL =====
                         Text(
                           user['email'],
-                          style: const TextStyle(
-                            fontSize: 14,
+                          style: TextStyle(
+                            fontSize: width * 0.035,
                             color: Colors.black54,
                           ),
                         ),
 
-                        const SizedBox(height: 30),
+                        SizedBox(height: height * 0.04),
 
                         // ===== INFO CARD =====
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: width * 0.07,
+                          ),
                           child: Container(
                             decoration: BoxDecoration(
                               color: const Color(0xFFF5E6C3),
-                              borderRadius: BorderRadius.circular(20),
+                              borderRadius: BorderRadius.circular(width * 0.05),
                             ),
                             child: Column(
                               children: [
-                                // _buildActionTile(
-                                //   icon: Icons.lock,
-                                //   label: 'Change Password',
-                                //   onTap: () {
-                                //     // TODO: Change password page
-                                //   },
-                                // ),
-                                const Divider(height: 1, color: Colors.white),
+                                const Divider(height: 1),
                                 _buildInfoTile(
                                   icon: Icons.verified_user,
                                   label: 'Role',
                                   value: user['role'],
+                                  width: width,
                                 ),
                               ],
                             ),
@@ -162,27 +154,28 @@ class _StudentProfileState extends State<StudentProfile> {
                   ),
                 ),
 
-                // ===== LOGOUT =====
+                // ===== LOGOUT BUTTON =====
                 Padding(
-                  padding: const EdgeInsets.only(
-                    left: 120,
-                    right: 120,
-                    bottom: 200,
+                  padding: EdgeInsets.only(
+                    left: width * 0.25,
+                    right: width * 0.25,
+                    bottom: height * 0.05,
                   ),
                   child: SizedBox(
-                    height: 55,
+                    height: height * 0.065,
+                    width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () => _showLogoutPopup(context),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFE5A72E),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
+                          borderRadius: BorderRadius.circular(width * 0.04),
                         ),
                       ),
-                      child: const Text(
+                      child: Text(
                         'Logout',
                         style: TextStyle(
-                          fontSize: 25,
+                          fontSize: width * 0.055,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                         ),
@@ -203,26 +196,30 @@ class _StudentProfileState extends State<StudentProfile> {
     required IconData icon,
     required String label,
     required String value,
+    required double width,
   }) {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(width * 0.04),
       child: Row(
         children: [
-          Icon(icon),
-          const SizedBox(width: 16),
+          Icon(icon, size: width * 0.06),
+          SizedBox(width: width * 0.04),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   label,
-                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                  style: TextStyle(
+                    fontSize: width * 0.03,
+                    color: Colors.black54,
+                  ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: width * 0.01),
                 Text(
                   value,
-                  style: const TextStyle(
-                    fontSize: 16,
+                  style: TextStyle(
+                    fontSize: width * 0.045,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -230,36 +227,6 @@ class _StudentProfileState extends State<StudentProfile> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  // ===== ACTION TILE =====
-  Widget _buildActionTile({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Icon(icon),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const Icon(Icons.chevron_right, size: 22),
-          ],
-        ),
       ),
     );
   }
@@ -279,11 +246,8 @@ class _StudentProfileState extends State<StudentProfile> {
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Color(0xFFE5A72E), // red box
-                  foregroundColor: Colors.white, // white text
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                  backgroundColor: const Color(0xFFE5A72E),
+                  foregroundColor: Colors.white,
                 ),
                 onPressed: () async {
                   final prefs = await SharedPreferences.getInstance();
