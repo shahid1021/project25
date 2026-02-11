@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
@@ -30,36 +30,62 @@ class _DfdSupportScreenState extends State<DfdSupportScreen> {
       setState(() {
         selectedFile = File(result.files.single.path!);
         fileName = result.files.single.name;
-        dfdResult = null; // reset old result
+        dfdResult = null;
       });
     }
   }
 
   // ================= BACKEND AI CALL =================
   Future<void> fetchDfdGuidance() async {
+    if (isLoading) return;
+
     setState(() {
       isLoading = true;
     });
 
-    final response = await http.post(
-      Uri.parse('http://192.168.10.54:5171/api/ai/dfd-guidance'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'abstractText':
-            'This project is an AI-based student project management system where students upload academic projects, faculty review submissions, and administrators manage approvals and workflows.',
-      }),
-    );
+    try {
+      final response = await http.post(
+        Uri.parse('http://10.249.120.82:5171/api/ai/dfd-guidance'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'abstractText':
+              'This project is an AI-based student project management system where students upload academic projects, faculty review submissions, and administrators manage approvals and workflows.',
+          'filePath': selectedFile?.path ?? 'dummy.pdf',
+        }),
+      );
 
-    if (response.statusCode == 200) {
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        setState(() {
+          dfdResult = jsonDecode(response.body);
+          isLoading = false;
+        });
+      } else {
+        setState(() {
+          isLoading = false;
+          dfdResult = {
+            "dfd_level": "Error",
+            "external_entities": [],
+            "processes": [],
+            "data_stores": [],
+            "data_flows": ["Server error: ${response.statusCode}"],
+          };
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+
       setState(() {
-        dfdResult = jsonDecode(response.body);
         isLoading = false;
+        dfdResult = {
+          "dfd_level": "Error",
+          "external_entities": [],
+          "processes": [],
+          "data_stores": [],
+          "data_flows": ["API not reachable. Check backend & IP."],
+        };
       });
-    } else {
-      setState(() {
-        isLoading = false;
-      });
-      throw Exception('Failed to fetch DFD guidance');
     }
   }
 
@@ -187,9 +213,9 @@ class _DfdSupportScreenState extends State<DfdSupportScreen> {
                         "Data Stores: ${dfdResult!['data_stores'].join(', ')}",
                       ),
                       const SizedBox(height: 10),
-                      Text(
+                      const Text(
                         "Data Flows:",
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       ...List.generate(
                         dfdResult!['data_flows'].length,

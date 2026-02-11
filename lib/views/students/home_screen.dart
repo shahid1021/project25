@@ -1,4 +1,5 @@
 import 'package:google_fonts/google_fonts.dart';
+import 'package:project_management/views/students/chat.dart';
 import 'package:project_management/views/students/dfd.dart';
 import 'package:project_management/views/students/settings.dart';
 import 'package:project_management/views/students/upload_files_page.dart';
@@ -154,7 +155,7 @@ class _StudentHomeState extends State<StudentHome> {
                   buildInfoBox(
                     'AI Assistant',
                     Icons.chat_bubble_outline,
-                    navigateTo: StudentHome(),
+                    navigateTo: chatscreen(),
                     context,
                   ),
                 ],
