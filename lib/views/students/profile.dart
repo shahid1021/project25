@@ -4,20 +4,42 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:project_management/views/auth/login_screen.dart';
 import 'package:project_management/config/api_config.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:project_management/views/students/about_page.dart';
 
 // ================= FETCH PROFILE =================
 Future<Map<String, dynamic>> fetchProfile() async {
-  final prefs = await SharedPreferences.getInstance();
-  final email = prefs.getString("email");
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final email = prefs.getString("email");
+    final studentName = prefs.getString("studentName") ?? "Student";
 
-  final response = await http.get(
-    Uri.parse('${ApiConfig.baseUrl}/User/me?email=$email'),
-  );
+    if (email == null || email.isEmpty) {
+      return {
+        "email": "user@example.com",
+        "name": studentName,
+        "status": "Active",
+      };
+    }
 
-  if (response.statusCode == 200) {
-    return jsonDecode(response.body);
-  } else {
-    throw Exception("Failed to load profile");
+    final response = await http
+        .get(
+          Uri.parse('${ApiConfig.baseUrl}/User/me?email=$email'),
+          headers: {'Content-Type': 'application/json'},
+        )
+        .timeout(const Duration(seconds: 10));
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      // Return default data if API fails
+      return {"email": email, "name": studentName, "status": "Active"};
+    }
+  } catch (e) {
+    print('Error fetching profile: $e');
+    // Return mock data on error
+    return {"email": "user@example.com", "name": "Student", "status": "Active"};
   }
 }
 
@@ -38,6 +60,56 @@ class _StudentProfileState extends State<StudentProfile> {
 
     return Scaffold(
       backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFE5A72E),
+        elevation: 0,
+        actions: [
+          PopupMenuButton(
+            icon: const Icon(Icons.more_vert, color: Colors.black, size: 26),
+            itemBuilder:
+                (context) => [
+                  PopupMenuItem(
+                    child: Row(
+                      children: [
+                        const Icon(Icons.share_outlined, color: Colors.black),
+                        const SizedBox(width: 0),
+                        const Text('Share'),
+                      ],
+                    ),
+                    onTap: () => _shareApp(),
+                  ),
+                  PopupMenuItem(
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline, color: Colors.black),
+                        const SizedBox(width: 12),
+                        const Text('About'),
+                      ],
+                    ),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AboutPage(),
+                        ),
+                      );
+                    },
+                  ),
+                  PopupMenuItem(
+                    child: Row(
+                      children: [
+                        const Icon(Icons.help_outline, color: Colors.black),
+                        const SizedBox(width: 12),
+                        const Text('Help'),
+                      ],
+                    ),
+                    onTap: () => _sendEmail(),
+                  ),
+                ],
+          ),
+          SizedBox(width: 8),
+        ],
+      ),
       body: SafeArea(
         child: FutureBuilder(
           future: fetchProfile(),
@@ -46,8 +118,43 @@ class _StudentProfileState extends State<StudentProfile> {
               return const Center(child: CircularProgressIndicator());
             }
 
+            if (snapshot.hasError) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      size: 48,
+                      color: Colors.red,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('Error loading profile'),
+                    const SizedBox(height: 8),
+                    Text(
+                      snapshot.error.toString(),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              );
+            }
+
             if (!snapshot.hasData) {
-              return const Center(child: Text('Failed to load profile'));
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.person_outline,
+                      size: 48,
+                      color: Colors.grey,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('No profile data available'),
+                  ],
+                ),
+              );
             }
 
             final user = snapshot.data as Map<String, dynamic>;
@@ -106,7 +213,7 @@ class _StudentProfileState extends State<StudentProfile> {
 
                         // ===== NAME =====
                         Text(
-                          user['name'],
+                          user['name'] ?? 'Student',
                           style: TextStyle(
                             fontSize: width * 0.06,
                             fontWeight: FontWeight.bold,
@@ -117,7 +224,7 @@ class _StudentProfileState extends State<StudentProfile> {
 
                         // ===== EMAIL =====
                         Text(
-                          user['email'],
+                          user['email'] ?? 'user@example.com',
                           style: TextStyle(
                             fontSize: width * 0.035,
                             color: Colors.black54,
@@ -142,7 +249,7 @@ class _StudentProfileState extends State<StudentProfile> {
                                 _buildInfoTile(
                                   icon: Icons.verified_user,
                                   label: 'Role',
-                                  value: user['role'],
+                                  value: user['role'] ?? 'Student',
                                   width: width,
                                 ),
                               ],
@@ -195,7 +302,7 @@ class _StudentProfileState extends State<StudentProfile> {
   Widget _buildInfoTile({
     required IconData icon,
     required String label,
-    required String value,
+    required dynamic value,
     required double width,
   }) {
     return Padding(
@@ -217,7 +324,7 @@ class _StudentProfileState extends State<StudentProfile> {
                 ),
                 SizedBox(height: width * 0.01),
                 Text(
-                  value,
+                  (value ?? '').toString(),
                   style: TextStyle(
                     fontSize: width * 0.045,
                     fontWeight: FontWeight.w600,
@@ -263,6 +370,165 @@ class _StudentProfileState extends State<StudentProfile> {
               ),
             ],
           ),
+    );
+  }
+
+  Future<void> _sendEmail() async {
+    final Uri emailLaunchUri = Uri(
+      scheme: 'mailto',
+      path: 'smrtlng746@gmail.com',
+      queryParameters: {'subject': 'Support - Project Management App'},
+    );
+
+    try {
+      if (await canLaunchUrl(emailLaunchUri)) {
+        await launchUrl(emailLaunchUri);
+      }
+    } catch (e) {
+      // Handle error
+    }
+  }
+
+  void _shareApp() {
+    Share.share(
+      'Check out the Project Management App! A comprehensive platform to manage and track your projects with AI assistance.',
+      subject: 'Project Management App',
+    );
+  }
+}
+
+// ================= PROFILE SCREEN (Menu) =================
+class ProfileScreen extends StatelessWidget {
+  const ProfileScreen({super.key});
+
+  Future<void> _sendEmail() async {
+    final Uri emailLaunchUri = Uri(
+      scheme: 'mailto',
+      path: 'smrtlng746@gmail.com',
+      queryParameters: {'subject': 'Support - Project Management App'},
+    );
+
+    try {
+      if (await canLaunchUrl(emailLaunchUri)) {
+        await launchUrl(emailLaunchUri);
+      }
+    } catch (e) {
+      // Handle error
+    }
+  }
+
+  void _shareApp() {
+    Share.share(
+      'Check out the Project Management App! A comprehensive platform to manage and track your projects with AI assistance.',
+      subject: 'Project Management App',
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        leading: Padding(
+          padding: const EdgeInsets.only(top: 15, left: 15),
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.black, size: 30),
+            onPressed: () {
+              Navigator.pop(context);
+            },
+          ),
+        ),
+        title: Padding(
+          padding: const EdgeInsets.only(left: 0, top: 15),
+          child: const Text(
+            "Menu",
+            style: TextStyle(
+              color: Colors.black,
+              fontWeight: FontWeight.bold,
+              fontSize: 30,
+            ),
+          ),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+      ),
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(padding: EdgeInsets.all(16.0)),
+              Container(
+                child: Column(
+                  children: [
+                    _buildBoxItem(
+                      icon: Icons.share_outlined,
+                      title: 'Share',
+                      onTap: _shareApp,
+                    ),
+                    const SizedBox(height: 10),
+                    _buildBoxItem(
+                      icon: Icons.info_outline,
+                      title: 'About',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AboutPage(),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    _buildBoxItem(
+                      icon: Icons.help_outline,
+                      title: 'Help',
+                      onTap: _sendEmail,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBoxItem({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFE5A72E),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE8D89A)),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 4,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 24, color: Colors.black87),
+            const SizedBox(width: 16),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 16, color: Colors.black87),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -1,6 +1,6 @@
 import 'package:project_management/views/students/home_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:project_management/views/students/notfication_std.dart';
+import 'package:project_management/views/students/previous_project.dart';
 import 'package:project_management/views/students/profile.dart';
 import 'package:project_management/views/students/projects.dart';
 import 'package:project_management/views/teacher/home.dart';
@@ -20,7 +20,7 @@ class _NavigationPageState extends State<NavigationPage> {
     // StudentHome(),
     TeacherHome(),
     UploadScreen(),
-    NotificationsScreen(),
+    PreviousProjectsScreen(),
     TeacherProfile(),
   ];
 

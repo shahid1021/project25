@@ -1,15 +1,10 @@
 import 'dart:io';
-import 'dart:convert';
-import 'package:http_parser/http_parser.dart';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:project_management/config/api_config.dart';
-import 'package:open_file/open_file.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path_provider/path_provider.dart';
 
 class UploadFilesPage extends StatefulWidget {
   const UploadFilesPage({super.key});
@@ -21,76 +16,10 @@ class UploadFilesPage extends StatefulWidget {
 class _UploadFilesPageState extends State<UploadFilesPage> {
   File? selectedFile;
   bool isUploading = false;
-  bool isLoading = true;
-  List<dynamic> uploadedFiles = [];
 
   @override
   void initState() {
     super.initState();
-    syncExistingFiles();
-    fetchUploadedFiles();
-  }
-
-  /// Sync existing files to database
-  Future<void> syncExistingFiles() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
-
-      if (token == null) return;
-
-      final uri = Uri.parse('${ApiConfig.baseUrl}/Projects/1/sync-files');
-
-      final response = await http.post(
-        uri,
-        headers: {'Authorization': 'Bearer $token'},
-      );
-
-      print('SYNC STATUS => ${response.statusCode}');
-      print('SYNC BODY => ${response.body}');
-    } catch (e) {
-      print('Sync error: $e');
-    }
-  }
-
-  /// Fetch uploaded files from backend
-  Future<void> fetchUploadedFiles() async {
-    setState(() => isLoading = true);
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
-
-      if (token == null) {
-        throw 'User not authenticated';
-      }
-
-      final uri = Uri.parse('${ApiConfig.baseUrl}/Projects/1/files');
-
-      final response = await http.get(
-        uri,
-        headers: {'Authorization': 'Bearer $token'},
-      );
-
-      print('FETCH FILES STATUS => ${response.statusCode}');
-      print('FETCH FILES BODY => ${response.body}');
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        setState(() {
-          uploadedFiles = data['files'] ?? [];
-        });
-      } else if (response.statusCode == 401) {
-        _showMessage('Session expired. Please log in again.');
-      } else {
-        _showMessage('Failed to load files');
-      }
-    } catch (e) {
-      print('Error fetching files: $e');
-      _showMessage('Failed to load files');
-    } finally {
-      setState(() => isLoading = false);
-    }
   }
 
   /// Pick PDF file
@@ -108,7 +37,11 @@ class _UploadFilesPageState extends State<UploadFilesPage> {
   }
 
   /// Upload file to backend
-  Future<void> uploadFile() async {
+  Future<void> uploadFile({
+    required String projectName,
+    required String teamMembers,
+    required String batch,
+  }) async {
     if (selectedFile == null) return;
 
     setState(() => isUploading = true);
@@ -116,6 +49,8 @@ class _UploadFilesPageState extends State<UploadFilesPage> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
+      final email = prefs.getString('email');
+      final studentName = prefs.getString('studentName');
 
       print("JWT TOKEN = $token");
 
@@ -130,14 +65,19 @@ class _UploadFilesPageState extends State<UploadFilesPage> {
       // AUTH HEADER
       request.headers['Authorization'] = 'Bearer $token';
 
-      // DO NOT set Content-Type manually
-
+      // Add file
       request.files.add(
         await http.MultipartFile.fromPath(
           'File', // MUST be capital F
           selectedFile!.path,
         ),
       );
+
+      // Add project metadata
+      request.fields['projectName'] = projectName;
+      request.fields['teamMembers'] = teamMembers;
+      request.fields['batch'] = batch;
+      request.fields['createdBy'] = email ?? studentName ?? 'Student';
 
       final response = await request.send();
 
@@ -151,10 +91,7 @@ class _UploadFilesPageState extends State<UploadFilesPage> {
           selectedFile = null;
         });
 
-        _showMessage('Upload successful');
-
-        // Refresh the file list
-        fetchUploadedFiles();
+        _showMessage('Project uploaded successfully');
       } else {
         _showMessage('Upload failed (${response.statusCode})');
       }
@@ -165,94 +102,111 @@ class _UploadFilesPageState extends State<UploadFilesPage> {
     }
   }
 
-  /// Delete file from backend
-  Future<void> deleteFile(int index) async {
-    final file = uploadedFiles[index];
-    final fileName = file['fileName'];
+  /// Show project details dialog before upload
+  void _showProjectDetailsDialog() {
+    final projectNameController = TextEditingController();
+    final teamMembersController = TextEditingController();
+    final batchController = TextEditingController();
 
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text(
+            'Project Details',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: projectNameController,
+                  decoration: InputDecoration(
+                    labelText: 'Project Name',
+                    hintText: 'Enter project name',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: teamMembersController,
+                  decoration: InputDecoration(
+                    labelText: 'Team Members',
+                    hintText: 'Enter team members names',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                  ),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: batchController,
+                  decoration: InputDecoration(
+                    labelText: 'Batch Year',
+                    hintText: 'e.g., 2024, 2025',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE5A72E),
+              ),
+              onPressed: () {
+                if (projectNameController.text.isEmpty ||
+                    teamMembersController.text.isEmpty ||
+                    batchController.text.isEmpty) {
+                  _showMessage('Please fill all fields');
+                  return;
+                }
 
-      if (token == null) {
-        throw 'User not authenticated';
-      }
+                Navigator.pop(context);
 
-      final uri = Uri.parse('${ApiConfig.baseUrl}/Projects/1/files/$fileName');
-
-      final response = await http.delete(
-        uri,
-        headers: {'Authorization': 'Bearer $token'},
-      );
-
-      print('DELETE STATUS => ${response.statusCode}');
-      print('DELETE BODY => ${response.body}');
-
-      if (response.statusCode == 200) {
-        setState(() {
-          uploadedFiles.removeAt(index);
-        });
-        _showMessage('File deleted successfully');
-      } else {
-        _showMessage('Failed to delete file');
-      }
-    } catch (e) {
-      print('Error deleting file: $e');
-      _showMessage('Error: ${e.toString()}');
-    }
+                uploadFile(
+                  projectName: projectNameController.text,
+                  teamMembers: teamMembersController.text,
+                  batch: batchController.text,
+                );
+              },
+              child: const Text('Upload'),
+            ),
+          ],
+        );
+      },
+    );
   }
+
+  /// Delete file from backend
+  // Removed - no longer needed
 
   /// View/Download file
-  Future<void> viewFile(int index) async {
-    final file = uploadedFiles[index];
-    final fileName = file['fileName'];
-    final displayName = file['displayName'] ?? 'file.pdf';
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
-
-      if (token == null) {
-        throw 'User not authenticated';
-      }
-
-      _showMessage('Downloading $displayName...');
-
-      final url = '${ApiConfig.baseUrl}/Projects/1/files/$fileName/download';
-
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-
-      print('Download status: ${response.statusCode}');
-
-      if (response.statusCode == 200) {
-        // Get temporary directory
-        final dir = await getTemporaryDirectory();
-        final filePath = '${dir.path}/$displayName';
-
-        // Save file
-        final fileToSave = File(filePath);
-        await fileToSave.writeAsBytes(response.bodyBytes);
-
-        print('File saved to: $filePath');
-        _showMessage('Opening file...');
-
-        // Open file
-        final result = await OpenFile.open(filePath);
-
-        if (result.type != ResultType.done) {
-          _showMessage('Could not open file: ${result.message}');
-        }
-      } else {
-        _showMessage('Failed to download file');
-      }
-    } catch (e) {
-      print('Error viewing file: $e');
-      _showMessage('Error: ${e.toString()}');
-    }
-  }
+  // Removed - no longer needed
 
   void _showMessage(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
@@ -262,25 +216,43 @@ class _UploadFilesPageState extends State<UploadFilesPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Upload Files'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () async {
-              await syncExistingFiles();
-              await fetchUploadedFiles();
-            },
+        backgroundColor: const Color(0xFFE5A72E),
+        elevation: 0,
+        title: const Text(
+          'Upload Files',
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.5,
           ),
-        ],
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            ElevatedButton.icon(
-              onPressed: pickFile,
-              icon: const Icon(Icons.attach_file),
-              label: const Text('Select PDF'),
+            Center(
+              child: ElevatedButton.icon(
+                onPressed: pickFile,
+                icon: const Icon(Icons.attach_file, color: Colors.white),
+                label: const Text(
+                  'Select PDF',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE5A72E),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                ),
+              ),
             ),
 
             if (selectedFile != null) ...[
@@ -290,59 +262,29 @@ class _UploadFilesPageState extends State<UploadFilesPage> {
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: isUploading ? null : uploadFile,
-                child:
-                    isUploading
-                        ? const CircularProgressIndicator()
-                        : const Text('Confirm Upload'),
+              Center(
+                child: ElevatedButton(
+                  onPressed: isUploading ? null : _showProjectDetailsDialog,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE5A72E),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                  ),
+                  child:
+                      isUploading
+                          ? const CircularProgressIndicator()
+                          : const Text(
+                            'Confirm Upload',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                ),
               ),
             ],
-
-            const SizedBox(height: 20),
-            const Divider(),
-
-            Expanded(
-              child:
-                  isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : uploadedFiles.isEmpty
-                      ? const Center(child: Text('No files uploaded yet'))
-                      : ListView.builder(
-                        itemCount: uploadedFiles.length,
-                        itemBuilder: (context, index) {
-                          final file = uploadedFiles[index];
-                          final displayName =
-                              file['displayName'] ??
-                              file['fileName'] ??
-                              'Unknown';
-                          final fileSize = file['size'] ?? 0;
-
-                          return ListTile(
-                            onTap: () => viewFile(index),
-                            leading: const Icon(
-                              Icons.picture_as_pdf,
-                              color: Colors.red,
-                              size: 40,
-                            ),
-                            title: Text(
-                              displayName,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            subtitle: Text(
-                              '${(fileSize / 1024).toStringAsFixed(2)} KB',
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () => deleteFile(index),
-                            ),
-                          );
-                        },
-                      ),
-            ),
           ],
         ),
       ),

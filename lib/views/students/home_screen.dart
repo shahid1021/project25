@@ -1,8 +1,9 @@
 import 'package:google_fonts/google_fonts.dart';
 import 'package:project_management/views/students/chat.dart';
 import 'package:project_management/views/students/dfd.dart';
-import 'package:project_management/views/students/settings.dart';
+import 'package:project_management/views/students/profile.dart';
 import 'package:project_management/views/students/upload_files_page.dart';
+import 'package:project_management/views/students/trending_projects.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -67,7 +68,7 @@ class _StudentHomeState extends State<StudentHome> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const SettingsScreen(),
+                    builder: (context) => const ProfileScreen(),
                   ),
                 );
               },
@@ -93,10 +94,8 @@ class _StudentHomeState extends State<StudentHome> {
                 color: const Color(0xFFE5A72E),
                 borderRadius: BorderRadius.circular(16),
               ),
-
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                // /mainAxisAlignment: MainAxisAlignment.start,
                 children: [
                   const Text(
                     'Project Name',
@@ -129,7 +128,6 @@ class _StudentHomeState extends State<StudentHome> {
               ),
             ),
             const SizedBox(height: 30),
-
             Expanded(
               child: ListView(
                 children: [
@@ -143,7 +141,7 @@ class _StudentHomeState extends State<StudentHome> {
                   buildInfoBox(
                     'Trending Projects',
                     Icons.trending_up,
-                    navigateTo: StudentHome(),
+                    navigateTo: TrendingProjectsScreen(),
                     context,
                   ),
                   buildInfoBox(

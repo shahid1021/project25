@@ -1,6 +1,6 @@
 import 'package:project_management/views/students/home_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:project_management/views/students/notfication_std.dart';
+import 'package:project_management/views/students/previous_project.dart';
 import 'package:project_management/views/students/profile.dart';
 import 'package:project_management/views/students/upload_files_page.dart';
 import 'package:project_management/views/teacher/home.dart';
@@ -25,7 +25,7 @@ class _MainNavigationState extends State<MainNavigation> {
         },
       ),
       UploadFilesPage(),
-      NotificationsScreen(),
+      PreviousProjectsScreen(),
       StudentProfile(),
     ];
   }
@@ -77,7 +77,7 @@ class _MainNavigationState extends State<MainNavigation> {
               children: [
                 navItem(Icons.home_sharp, 0, itemWidth, iconSize),
                 navItem(Icons.folder_rounded, 1, itemWidth, iconSize),
-                navItem(Icons.notifications_rounded, 2, itemWidth, iconSize),
+                navItem(Icons.cloud_done_outlined, 2, itemWidth, iconSize),
                 navItem(Icons.person, 3, itemWidth, iconSize),
               ],
             ),
