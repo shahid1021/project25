@@ -11,7 +11,7 @@ class AiService {
           .post(
             Uri.parse("$baseUrl/chat"),
             headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'message': message}),
+            body: jsonEncode({'Message': message}),
           )
           .timeout(
             const Duration(seconds: 30),

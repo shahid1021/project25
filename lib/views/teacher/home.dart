@@ -433,12 +433,14 @@ class _TeacherHomeState extends State<TeacherHome> {
 
   Widget _buildSummaryCard(String title, String count, Color color) {
     return Container(
+      height: 120,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
             title,
