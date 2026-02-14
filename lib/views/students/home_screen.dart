@@ -4,9 +4,14 @@ import 'package:project_management/views/students/dfd.dart';
 import 'package:project_management/views/students/profile.dart';
 import 'package:project_management/views/students/upload_files_page.dart';
 import 'package:project_management/views/students/trending_projects.dart';
+import 'package:project_management/views/students/student_notifications.dart';
+import 'package:project_management/config/api_config.dart';
+import 'package:project_management/services/background_message_checker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class StudentHome extends StatefulWidget {
   final Function(int)? onNavigate;
@@ -18,11 +23,15 @@ class StudentHome extends StatefulWidget {
 
 class _StudentHomeState extends State<StudentHome> {
   String studentName = '';
+  int unreadMessageCount = 0;
 
   @override
   void initState() {
     super.initState();
     loadStudentName();
+    checkForNewMessages();
+    // Start background message checker
+    BackgroundMessageChecker.startPeriodicCheck();
   }
 
   Future<void> loadStudentName() async {
@@ -30,6 +39,28 @@ class _StudentHomeState extends State<StudentHome> {
     setState(() {
       studentName = prefs.getString('studentName') ?? '';
     });
+  }
+
+  Future<void> checkForNewMessages() async {
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/notifications/get'),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final count = (data['notifications'] as List?)?.length ?? 0;
+        final prefs = await SharedPreferences.getInstance();
+        final lastSeenCount = prefs.getInt('lastSeenMessageCount') ?? 0;
+
+        if (count > lastSeenCount) {
+          setState(() {
+            unreadMessageCount = count - lastSeenCount;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error checking messages: $e');
+    }
   }
 
   @override
@@ -56,6 +87,52 @@ class _StudentHomeState extends State<StudentHome> {
           ),
         ),
         actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 10, top: 8),
+            child: Stack(
+              children: [
+                IconButton(
+                  icon: const Icon(
+                    Icons.notifications_rounded,
+                    color: Colors.black,
+                    size: 30,
+                  ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (context) => const StudentNotificationsScreen(),
+                      ),
+                    ).then((_) {
+                      // Refresh unread count after returning from notifications
+                      checkForNewMessages();
+                    });
+                  },
+                ),
+                if (unreadMessageCount > 0)
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        unreadMessageCount.toString(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 20, top: 8),
             child: IconButton(

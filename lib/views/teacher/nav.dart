@@ -1,10 +1,10 @@
 import 'package:project_management/views/students/home_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:project_management/views/students/previous_project.dart';
-import 'package:project_management/views/students/profile.dart';
 import 'package:project_management/views/students/projects.dart';
 import 'package:project_management/views/teacher/home.dart';
 import 'package:project_management/views/teacher/pfp.dart';
+import 'package:project_management/views/teacher/notiific.dart';
+import 'package:project_management/views/teacher/upload.dart';
 
 class NavigationPage extends StatefulWidget {
   const NavigationPage({super.key});
@@ -19,8 +19,8 @@ class _NavigationPageState extends State<NavigationPage> {
   final List<Widget> screens = [
     // StudentHome(),
     TeacherHome(),
-    UploadScreen(),
-    PreviousProjectsScreen(),
+    UploadPage(),
+    NotificationsScreen(),
     TeacherProfile(),
   ];
 

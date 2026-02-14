@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:project_management/views/auth/login_screen.dart';
 import 'package:project_management/config/api_config.dart';
+import 'package:project_management/services/auth_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:project_management/views/students/about_page.dart';
@@ -13,12 +14,15 @@ Future<Map<String, dynamic>> fetchProfile() async {
   try {
     final prefs = await SharedPreferences.getInstance();
     final email = prefs.getString("email");
-    final studentName = prefs.getString("studentName") ?? "Student";
+    final firstName = prefs.getString("firstName") ?? "Student";
+    final lastName = prefs.getString("lastName") ?? "";
 
     if (email == null || email.isEmpty) {
       return {
         "email": "user@example.com",
-        "name": studentName,
+        "firstName": firstName,
+        "lastName": lastName,
+        "name": "$firstName $lastName".trim(),
         "status": "Active",
       };
     }
@@ -34,12 +38,24 @@ Future<Map<String, dynamic>> fetchProfile() async {
       return jsonDecode(response.body);
     } else {
       // Return default data if API fails
-      return {"email": email, "name": studentName, "status": "Active"};
+      return {
+        "email": email,
+        "firstName": firstName,
+        "lastName": lastName,
+        "name": "$firstName $lastName".trim(),
+        "status": "Active",
+      };
     }
   } catch (e) {
     print('Error fetching profile: $e');
     // Return mock data on error
-    return {"email": "user@example.com", "name": "Student", "status": "Active"};
+    return {
+      "email": "user@example.com",
+      "firstName": "Student",
+      "lastName": "",
+      "name": "Student",
+      "status": "Active",
+    };
   }
 }
 
@@ -211,24 +227,41 @@ class _StudentProfileState extends State<StudentProfile> {
 
                         SizedBox(height: height * 0.08),
 
-                        // ===== NAME =====
-                        Text(
-                          user['name'] ?? 'Student',
-                          style: TextStyle(
-                            fontSize: width * 0.06,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-
-                        SizedBox(height: height * 0.005),
-
-                        // ===== EMAIL =====
-                        Text(
-                          user['email'] ?? 'user@example.com',
-                          style: TextStyle(
-                            fontSize: width * 0.035,
-                            color: Colors.black54,
-                          ),
+                        // ===== NAME WITH EDIT BUTTON =====
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                children: [
+                                  Text(
+                                    '${user['firstName'] ?? 'Student'} ${user['lastName'] ?? ''}'
+                                        .trim(),
+                                    style: TextStyle(
+                                      fontSize: width * 0.06,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  SizedBox(height: height * 0.005),
+                                  Text(
+                                    user['email'] ?? 'user@example.com',
+                                    style: TextStyle(
+                                      fontSize: width * 0.035,
+                                      color: Colors.black54,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.edit,
+                                color: Color(0xFFE5A72E),
+                              ),
+                              onPressed:
+                                  () => _showEditNameDialog(context, user),
+                            ),
+                          ],
                         ),
 
                         SizedBox(height: height * 0.04),
@@ -358,7 +391,10 @@ class _StudentProfileState extends State<StudentProfile> {
                 ),
                 onPressed: () async {
                   final prefs = await SharedPreferences.getInstance();
-                  await prefs.clear();
+                  // Only clear auth-related data
+                  await prefs.remove('token');
+                  await prefs.remove('email');
+                  await prefs.remove('studentName');
 
                   Navigator.pushAndRemoveUntil(
                     context,
@@ -393,6 +429,97 @@ class _StudentProfileState extends State<StudentProfile> {
     Share.share(
       'Check out the Project Management App! A comprehensive platform to manage and track your projects with AI assistance.',
       subject: 'Project Management App',
+    );
+  }
+
+  void _showEditNameDialog(BuildContext context, Map<String, dynamic> user) {
+    final TextEditingController firstNameController = TextEditingController(
+      text: user['firstName'] ?? '',
+    );
+    final TextEditingController lastNameController = TextEditingController(
+      text: user['lastName'] ?? '',
+    );
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Edit Name'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: firstNameController,
+                  decoration: InputDecoration(
+                    labelText: 'First Name',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: lastNameController,
+                  decoration: InputDecoration(
+                    labelText: 'Last Name',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final email = user['email'];
+                  final firstName = firstNameController.text.trim();
+                  final lastName = lastNameController.text.trim();
+
+                  if (firstName.isEmpty || lastName.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please fill in all fields'),
+                      ),
+                    );
+                    return;
+                  }
+
+                  // Call the update API
+                  final authService = AuthService();
+                  final result = await authService.updateName(
+                    email,
+                    firstName,
+                    lastName,
+                  );
+
+                  if (result['success']) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Name updated successfully'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                    Navigator.pop(context);
+                    // Refresh the page
+                    setState(() {});
+                  } else {
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text(result['message'])));
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE5A72E),
+                ),
+                child: const Text('Save'),
+              ),
+            ],
+          ),
     );
   }
 }

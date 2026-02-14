@@ -3,30 +3,63 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:project_management/views/auth/login_screen.dart';
+import 'package:project_management/config/api_config.dart';
+import 'package:project_management/services/auth_service.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:project_management/views/students/about_page.dart';
 
+// ================= FETCH PROFILE =================
 Future<Map<String, dynamic>> fetchProfile() async {
-  final prefs = await SharedPreferences.getInstance();
-  final token = prefs.getString("token");
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final email = prefs.getString("email");
+    final firstName = prefs.getString("firstName") ?? "Teacher";
+    final lastName = prefs.getString("lastName") ?? "";
 
-  if (token == null) {
-    throw Exception("No token found");
-  }
+    if (email == null || email.isEmpty) {
+      return {
+        "email": "user@example.com",
+        "firstName": firstName,
+        "lastName": lastName,
+        "name": "$firstName $lastName".trim(),
+        "status": "Active",
+      };
+    }
 
-  final response = await http.get(
-    Uri.parse("https://localhost:44319/api/Auth/me"),
-    headers: {
-      "Authorization": "Bearer $token",
-      "Content-Type": "application/json",
-    },
-  );
+    final response = await http
+        .get(
+          Uri.parse('${ApiConfig.baseUrl}/User/me?email=$email'),
+          headers: {'Content-Type': 'application/json'},
+        )
+        .timeout(const Duration(seconds: 10));
 
-  if (response.statusCode == 200) {
-    return jsonDecode(response.body);
-  } else {
-    throw Exception("Failed to load profile");
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      // Return default data if API fails
+      return {
+        "email": email,
+        "firstName": firstName,
+        "lastName": lastName,
+        "name": "$firstName $lastName".trim(),
+        "status": "Active",
+      };
+    }
+  } catch (e) {
+    print('Error fetching profile: $e');
+    // Return mock data on error
+    return {
+      "email": "user@example.com",
+      "firstName": "Teacher",
+      "lastName": "",
+      "name": "Teacher",
+      "status": "Active",
+    };
   }
 }
 
+// ================= TEACHER PROFILE =================
 class TeacherProfile extends StatefulWidget {
   const TeacherProfile({super.key});
 
@@ -37,9 +70,62 @@ class TeacherProfile extends StatefulWidget {
 class _TeacherProfileState extends State<TeacherProfile> {
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final width = size.width;
+    final height = size.height;
+
     return Scaffold(
-      extendBodyBehindAppBar: true,
       backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFE5A72E),
+        elevation: 0,
+        actions: [
+          PopupMenuButton(
+            icon: const Icon(Icons.more_vert, color: Colors.black, size: 26),
+            itemBuilder:
+                (context) => [
+                  PopupMenuItem(
+                    child: Row(
+                      children: [
+                        const Icon(Icons.share_outlined, color: Colors.black),
+                        const SizedBox(width: 0),
+                        const Text('Share'),
+                      ],
+                    ),
+                    onTap: () => _shareApp(),
+                  ),
+                  PopupMenuItem(
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline, color: Colors.black),
+                        const SizedBox(width: 12),
+                        const Text('About'),
+                      ],
+                    ),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AboutPage(),
+                        ),
+                      );
+                    },
+                  ),
+                  PopupMenuItem(
+                    child: Row(
+                      children: [
+                        const Icon(Icons.help_outline, color: Colors.black),
+                        const SizedBox(width: 12),
+                        const Text('Help'),
+                      ],
+                    ),
+                    onTap: () => _sendEmail(),
+                  ),
+                ],
+          ),
+          SizedBox(width: 8),
+        ],
+      ),
       body: SafeArea(
         child: FutureBuilder(
           future: fetchProfile(),
@@ -48,8 +134,43 @@ class _TeacherProfileState extends State<TeacherProfile> {
               return const Center(child: CircularProgressIndicator());
             }
 
+            if (snapshot.hasError) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      size: 48,
+                      color: Colors.red,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('Error loading profile'),
+                    const SizedBox(height: 8),
+                    Text(
+                      snapshot.error.toString(),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              );
+            }
+
             if (!snapshot.hasData) {
-              return const Center(child: Text('Failed to load profile'));
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.person_outline,
+                      size: 48,
+                      color: Colors.grey,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('No profile data available'),
+                  ],
+                ),
+              );
             }
 
             final user = snapshot.data as Map<String, dynamic>;
@@ -60,13 +181,13 @@ class _TeacherProfileState extends State<TeacherProfile> {
                   child: SingleChildScrollView(
                     child: Column(
                       children: [
-                        // Top curved section
+                        // ===== HEADER =====
                         Stack(
-                          clipBehavior: Clip.none,
                           alignment: Alignment.bottomCenter,
+                          clipBehavior: Clip.none,
                           children: [
                             Container(
-                              height: 200,
+                              height: height * 0.25,
                               decoration: const BoxDecoration(
                                 color: Color(0xFFE5A72E),
                                 borderRadius: BorderRadius.only(
@@ -76,9 +197,9 @@ class _TeacherProfileState extends State<TeacherProfile> {
                               ),
                             ),
                             Positioned(
-                              bottom: -50,
+                              bottom: -height * 0.06,
                               child: Container(
-                                padding: const EdgeInsets.all(4),
+                                padding: EdgeInsets.all(width * 0.01),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   shape: BoxShape.circle,
@@ -90,13 +211,13 @@ class _TeacherProfileState extends State<TeacherProfile> {
                                     ),
                                   ],
                                 ),
-                                child: const CircleAvatar(
-                                  radius: 45,
+                                child: CircleAvatar(
+                                  radius: width * 0.11,
                                   backgroundColor: Colors.white,
                                   child: Icon(
                                     Icons.person,
-                                    size: 80,
-                                    color: Color(0xFFE5A72E),
+                                    size: width * 0.18,
+                                    color: const Color(0xFFE5A72E),
                                   ),
                                 ),
                               ),
@@ -104,55 +225,65 @@ class _TeacherProfileState extends State<TeacherProfile> {
                           ],
                         ),
 
-                        const SizedBox(height: 60),
+                        SizedBox(height: height * 0.08),
 
-                        // Role
-                        // NAME
-                        Text(
-                          user['name'],
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
+                        // ===== NAME WITH EDIT BUTTON =====
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                children: [
+                                  Text(
+                                    '${user['firstName'] ?? 'Teacher'} ${user['lastName'] ?? ''}'
+                                        .trim(),
+                                    style: TextStyle(
+                                      fontSize: width * 0.06,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  SizedBox(height: height * 0.005),
+                                  Text(
+                                    user['email'] ?? 'user@example.com',
+                                    style: TextStyle(
+                                      fontSize: width * 0.035,
+                                      color: Colors.black54,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.edit,
+                                color: Color(0xFFE5A72E),
+                              ),
+                              onPressed:
+                                  () => _showEditNameDialog(context, user),
+                            ),
+                          ],
                         ),
 
-                        const SizedBox(height: 4),
+                        SizedBox(height: height * 0.04),
 
-                        // EMAIL
-                        Text(
-                          user['email'],
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Colors.black54,
-                          ),
-                        ),
-
-                        const SizedBox(height: 8),
-
-                        // ROLE
-                        // Text(
-                        //   user['role'],
-                        //   style: const TextStyle(
-                        //     fontSize: 14,
-                        //     fontWeight: FontWeight.w600,
-                        //   ),
-                        // ),
-                        const SizedBox(height: 30),
-
+                        // ===== INFO CARD =====
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: width * 0.07,
+                          ),
                           child: Container(
                             decoration: BoxDecoration(
                               color: const Color(0xFFF5E6C3),
-                              borderRadius: BorderRadius.circular(20),
+                              borderRadius: BorderRadius.circular(width * 0.05),
                             ),
                             child: Column(
                               children: [
+                                const Divider(height: 1),
                                 _buildInfoTile(
                                   icon: Icons.verified_user,
                                   label: 'Role',
-                                  value: user['role'],
+                                  value: user['role'] ?? 'Teacher',
+                                  width: width,
                                 ),
                               ],
                             ),
@@ -163,27 +294,28 @@ class _TeacherProfileState extends State<TeacherProfile> {
                   ),
                 ),
 
-                // Logout button
+                // ===== LOGOUT BUTTON =====
                 Padding(
-                  padding: const EdgeInsets.only(
-                    left: 120,
-                    right: 120,
-                    bottom: 200,
+                  padding: EdgeInsets.only(
+                    left: width * 0.25,
+                    right: width * 0.25,
+                    bottom: height * 0.05,
                   ),
                   child: SizedBox(
-                    height: 55,
+                    height: height * 0.065,
+                    width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () => _showLogoutPopup(context),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFE5A72E),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
+                          borderRadius: BorderRadius.circular(width * 0.04),
                         ),
                       ),
-                      child: const Text(
+                      child: Text(
                         'Logout',
                         style: TextStyle(
-                          fontSize: 25,
+                          fontSize: width * 0.055,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                         ),
@@ -199,30 +331,35 @@ class _TeacherProfileState extends State<TeacherProfile> {
     );
   }
 
+  // ===== INFO TILE =====
   Widget _buildInfoTile({
     required IconData icon,
     required String label,
-    required String value,
+    required dynamic value,
+    required double width,
   }) {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(width * 0.04),
       child: Row(
         children: [
-          Icon(icon),
-          const SizedBox(width: 16),
+          Icon(icon, size: width * 0.06),
+          SizedBox(width: width * 0.04),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   label,
-                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                  style: TextStyle(
+                    fontSize: width * 0.03,
+                    color: Colors.black54,
+                  ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: width * 0.01),
                 Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 16,
+                  (value ?? '').toString(),
+                  style: TextStyle(
+                    fontSize: width * 0.045,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -234,6 +371,7 @@ class _TeacherProfileState extends State<TeacherProfile> {
     );
   }
 
+  // ===== LOGOUT POPUP =====
   void _showLogoutPopup(BuildContext context) {
     showDialog(
       context: context,
@@ -248,15 +386,16 @@ class _TeacherProfileState extends State<TeacherProfile> {
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Color(0xFFE5A72E), // red box
-                  foregroundColor: Colors.white, // white text
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                  backgroundColor: const Color(0xFFE5A72E),
+                  foregroundColor: Colors.white,
                 ),
                 onPressed: () async {
                   final prefs = await SharedPreferences.getInstance();
-                  await prefs.clear();
+                  // Only clear auth-related data, keep projects
+                  await prefs.remove('token');
+                  await prefs.remove('email');
+                  await prefs.remove('studentName');
+                  // teacher_projects is preserved for next login
 
                   Navigator.pushAndRemoveUntil(
                     context,
@@ -268,6 +407,120 @@ class _TeacherProfileState extends State<TeacherProfile> {
               ),
             ],
           ),
+    );
+  }
+
+  void _showEditNameDialog(BuildContext context, Map<String, dynamic> user) {
+    final TextEditingController firstNameController = TextEditingController(
+      text: user['firstName'] ?? '',
+    );
+    final TextEditingController lastNameController = TextEditingController(
+      text: user['lastName'] ?? '',
+    );
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Edit Name'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: firstNameController,
+                  decoration: InputDecoration(
+                    labelText: 'First Name',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: lastNameController,
+                  decoration: InputDecoration(
+                    labelText: 'Last Name',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final email = user['email'];
+                  final firstName = firstNameController.text.trim();
+                  final lastName = lastNameController.text.trim();
+
+                  if (firstName.isEmpty || lastName.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please fill in all fields'),
+                      ),
+                    );
+                    return;
+                  }
+
+                  // Call the update API
+                  final authService = AuthService();
+                  final result = await authService.updateName(
+                    email,
+                    firstName,
+                    lastName,
+                  );
+
+                  if (result['success']) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Name updated successfully'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                    Navigator.pop(context);
+                    // Refresh the page
+                    setState(() {});
+                  } else {
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text(result['message'])));
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE5A72E),
+                ),
+                child: const Text('Save'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  Future<void> _sendEmail() async {
+    final Uri emailLaunchUri = Uri(
+      scheme: 'mailto',
+      path: 'smrtlng746@gmail.com',
+      queryParameters: {'subject': 'Support - Project Management App'},
+    );
+
+    try {
+      if (await canLaunchUrl(emailLaunchUri)) {
+        await launchUrl(emailLaunchUri);
+      }
+    } catch (e) {
+      // Handle error
+    }
+  }
+
+  void _shareApp() {
+    Share.share(
+      'Check out the Project Management App! A comprehensive platform to manage and track your projects with AI assistance.',
+      subject: 'Project Management App',
     );
   }
 }

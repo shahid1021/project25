@@ -293,42 +293,64 @@ class _RegisterpageState extends State<Registerpage> {
                               onPressed:
                                   _isRegisterButtonActive
                                       ? () async {
-                                        final bool
-                                        success = await AuthService().register(
-                                          firstName:
-                                              _firstnameController.text.trim(),
-                                          lastName:
-                                              _lastnameController.text.trim(),
-                                          email: _emailController.text.trim(),
-                                          password:
-                                              _passwordController.text.trim(),
-                                        );
+                                        try {
+                                          final result = await AuthService()
+                                              .register(
+                                                firstName:
+                                                    _firstnameController.text
+                                                        .trim(),
+                                                lastName:
+                                                    _lastnameController.text
+                                                        .trim(),
+                                                email:
+                                                    _emailController.text
+                                                        .trim(),
+                                                password:
+                                                    _passwordController.text
+                                                        .trim(),
+                                              );
 
-                                        if (success == true) {
+                                          if (result['success'] == true) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  "Registration successful",
+                                                ),
+                                                backgroundColor: Colors.green,
+                                              ),
+                                            );
+
+                                            Navigator.pushReplacement(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder:
+                                                    (_) => const LoginPage(),
+                                              ),
+                                            );
+                                          } else {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  result['message'] ??
+                                                      "Registration failed",
+                                                ),
+                                                backgroundColor: Colors.red,
+                                              ),
+                                            );
+                                          }
+                                        } catch (e) {
                                           ScaffoldMessenger.of(
                                             context,
                                           ).showSnackBar(
-                                            const SnackBar(
+                                            SnackBar(
                                               content: Text(
-                                                "Registration successful",
+                                                "Error: ${e.toString()}",
                                               ),
-                                            ),
-                                          );
-
-                                          Navigator.pushReplacement(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) => const LoginPage(),
-                                            ),
-                                          );
-                                        } else {
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            const SnackBar(
-                                              content: Text(
-                                                "Registration failed",
-                                              ),
+                                              backgroundColor: Colors.red,
                                             ),
                                           );
                                         }
