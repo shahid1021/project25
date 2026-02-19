@@ -7,6 +7,7 @@ import 'package:project_management/views/auth/forgot_password.dart';
 import 'package:project_management/views/students/home_screen.dart';
 import 'package:project_management/views/teacher/home.dart';
 import 'package:project_management/views/teacher/nav.dart';
+import 'package:project_management/views/admin/admin_panel.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -281,6 +282,13 @@ class _LoginPageState extends State<LoginPage> {
                                             builder: (_) => NavigationPage(),
                                           ),
                                         );
+                                      } else if (result == "Admin") {
+                                        Navigator.pushReplacement(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => const AdminPanel(),
+                                          ),
+                                        );
                                       } else if (result == "no_account") {
                                         ScaffoldMessenger.of(
                                           context,
@@ -298,6 +306,41 @@ class _LoginPageState extends State<LoginPage> {
                                           const SnackBar(
                                             content: Text("Incorrect password"),
                                           ),
+                                        );
+                                      } else if (result == "blocked") {
+                                        showDialog(
+                                          context: context,
+                                          builder:
+                                              (ctx) => AlertDialog(
+                                                title: const Row(
+                                                  children: [
+                                                    Icon(
+                                                      Icons.block,
+                                                      color: Colors.red,
+                                                    ),
+                                                    SizedBox(width: 8),
+                                                    Text('Access Blocked'),
+                                                  ],
+                                                ),
+                                                content: const Text(
+                                                  'Your account has been blocked by the admin. Please contact the administrator for further assistance.',
+                                                ),
+                                                actions: [
+                                                  ElevatedButton(
+                                                    style:
+                                                        ElevatedButton.styleFrom(
+                                                          backgroundColor:
+                                                              Colors.red,
+                                                          foregroundColor:
+                                                              Colors.white,
+                                                        ),
+                                                    onPressed:
+                                                        () =>
+                                                            Navigator.pop(ctx),
+                                                    child: const Text('OK'),
+                                                  ),
+                                                ],
+                                              ),
                                         );
                                       } else {
                                         ScaffoldMessenger.of(

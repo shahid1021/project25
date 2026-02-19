@@ -117,6 +117,58 @@ class _UploadPageState extends State<UploadPage> {
     }
   }
 
+  Future<void> checkWithAiSimilarity() async {
+    if (selectedFileName == null || extractedText == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please upload a file first')),
+      );
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+      detectionResult = null;
+    });
+
+    try {
+      final response = await http
+          .post(
+            Uri.parse('${ApiConfig.baseUrl}/ai/ai-similarity'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'abstractText': extractedText}),
+          )
+          .timeout(const Duration(seconds: 120));
+
+      if (response.statusCode == 200) {
+        final result = jsonDecode(response.body);
+        setState(() {
+          detectionResult = result;
+          isLoading = false;
+        });
+
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AiSimilarityResultsPage(result: result),
+            ),
+          );
+        }
+      } else {
+        setState(() => isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${response.statusCode}')),
+        );
+      }
+    } catch (e) {
+      setState(() => isLoading = false);
+      print('AI Similarity Error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error running AI similarity check')),
+      );
+    }
+  }
+
   Future<void> pickFile() async {
     bool allowed = await requestStoragePermission();
     if (!allowed) {
@@ -280,27 +332,56 @@ class _UploadPageState extends State<UploadPage> {
 
                       // Check File Button with Search Icon
                       if (selectedFileName != null)
-                        Row(
+                        Column(
                           children: [
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                icon: const Icon(Icons.search),
-                                label: const Text(
-                                  'Check the File',
-                                  style: TextStyle(fontSize: 16),
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFE5A72E),
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 16,
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    icon: const Icon(Icons.search),
+                                    label: const Text(
+                                      'Check the File',
+                                      style: TextStyle(fontSize: 16),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFFE5A72E),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 16,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    onPressed: checkFileForDuplicates,
                                   ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    icon: const Icon(Icons.psychology_rounded),
+                                    label: const Text(
+                                      'AI Deep Similarity Check',
+                                      style: TextStyle(fontSize: 16),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF6C63FF),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 16,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    onPressed: checkWithAiSimilarity,
                                   ),
                                 ),
-                                onPressed: checkFileForDuplicates,
-                              ),
+                              ],
                             ),
                           ],
                         ),
@@ -908,6 +989,246 @@ class _DuplicateResultsPageState extends State<DuplicateResultsPage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ==================== AI SIMILARITY RESULTS PAGE ====================
+class AiSimilarityResultsPage extends StatelessWidget {
+  final Map<String, dynamic> result;
+
+  const AiSimilarityResultsPage({super.key, required this.result});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDuplicate = result['isDuplicate'] ?? false;
+    final similarProjects = result['similarProjects'] as List<dynamic>? ?? [];
+    final totalChecked = result['totalChecked'] ?? 0;
+    final analysis = result['analysis'] ?? '';
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text(
+          'AI Similarity Results',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: const Color(0xFF6C63FF),
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Status card
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: isDuplicate ? Colors.red.shade50 : Colors.green.shade50,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color:
+                      isDuplicate ? Colors.red.shade200 : Colors.green.shade200,
+                ),
+              ),
+              child: Column(
+                children: [
+                  Icon(
+                    isDuplicate
+                        ? Icons.warning_rounded
+                        : Icons.verified_rounded,
+                    size: 48,
+                    color: isDuplicate ? Colors.red : Colors.green,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    isDuplicate ? 'Similar Projects Found' : 'Unique Project!',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color:
+                          isDuplicate
+                              ? Colors.red.shade700
+                              : Colors.green.shade700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    analysis,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Checked against $totalChecked projects using AI',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            if (similarProjects.isNotEmpty) ...[
+              Text(
+                'Similar Projects (${similarProjects.length})',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ...similarProjects.map((project) {
+                final similarity = project['similarity'] ?? 0;
+                final Color simColor =
+                    similarity >= 70
+                        ? Colors.red
+                        : similarity >= 40
+                        ? Colors.orange
+                        : Colors.yellow.shade700;
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade200),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              project['name'] ?? 'Unknown',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: simColor.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              '$similarity% Match',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: simColor,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      // Similarity bar
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: similarity / 100.0,
+                          backgroundColor: Colors.grey.shade200,
+                          color: simColor,
+                          minHeight: 6,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          _infoChip('Batch: ${project['batch'] ?? 'N/A'}'),
+                          const SizedBox(width: 8),
+                          _infoChip('By: ${project['createdBy'] ?? 'N/A'}'),
+                        ],
+                      ),
+                      if (project['reason'] != null &&
+                          project['reason'].toString().isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.psychology_rounded,
+                                size: 18,
+                                color: Colors.blue.shade700,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  project['reason'],
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.blue.shade800,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              }),
+            ],
+
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.arrow_back),
+                label: const Text('Back to Upload'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.grey.shade300,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _infoChip(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
       ),
     );
   }

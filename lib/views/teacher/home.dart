@@ -1,13 +1,13 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:project_management/services/teacher_project_service.dart';
 import 'package:project_management/views/students/settings.dart';
 import 'package:project_management/views/teacher/upload.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // ================== TEAM MODEL ==================
 class TeamProject {
-  final String id;
+  final int id;
   final String groupNumber;
   final String groupMembers;
   final String projectName;
@@ -28,21 +28,10 @@ class TeamProject {
 
   bool get isCompleted => completionPercentage == 100;
 
-  // Serialize to JSON for storage
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'groupNumber': groupNumber,
-      'groupMembers': groupMembers,
-      'projectName': projectName,
-      'completionStages': completionStages,
-    };
-  }
-
-  // Deserialize from JSON
+  // Deserialize from API JSON
   factory TeamProject.fromMap(Map<String, dynamic> map) {
     return TeamProject(
-      id: map['id'] ?? '',
+      id: map['id'] ?? 0,
       groupNumber: map['groupNumber'] ?? '',
       groupMembers: map['groupMembers'] ?? '',
       projectName: map['projectName'] ?? '',
@@ -64,54 +53,48 @@ class _TeacherHomeState extends State<TeacherHome> {
   String teacherName = '';
   String firstName = '';
   String lastName = '';
+  String teacherEmail = '';
   List<TeamProject> teams = [];
   String? selectedGroupNumber;
+  bool isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    loadTeacherName();
-    loadProjects();
+    loadTeacherInfo();
   }
 
-  Future<void> loadTeacherName() async {
+  Future<void> loadTeacherInfo() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       firstName = prefs.getString('firstName') ?? '';
       lastName = prefs.getString('lastName') ?? '';
       teacherName = '$firstName $lastName'.trim();
+      teacherEmail = prefs.getString('email') ?? '';
     });
-  }
-
-  Future<void> loadProjects() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final projectsJson = prefs.getString('teacher_projects');
-      if (projectsJson != null) {
-        final List<dynamic> jsonList = jsonDecode(projectsJson);
-        setState(() {
-          teams =
-              jsonList
-                  .map(
-                    (item) => TeamProject.fromMap(item as Map<String, dynamic>),
-                  )
-                  .toList();
-        });
-      }
-    } catch (e) {
-      print('Error loading projects: $e');
+    if (teacherEmail.isNotEmpty) {
+      loadProjects();
     }
   }
 
-  Future<void> saveProjects() async {
+  Future<void> loadProjects() async {
+    setState(() => isLoading = true);
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final projectsJson = jsonEncode(
-        teams.map((team) => team.toMap()).toList(),
+      final projectsList = await TeacherProjectService.getProjects(
+        teacherEmail,
       );
-      await prefs.setString('teacher_projects', projectsJson);
+      setState(() {
+        teams =
+            projectsList
+                .map(
+                  (item) => TeamProject.fromMap(item as Map<String, dynamic>),
+                )
+                .toList();
+      });
     } catch (e) {
-      print('Error saving projects: $e');
+      print('Error loading projects: $e');
+    } finally {
+      setState(() => isLoading = false);
     }
   }
 
@@ -230,7 +213,7 @@ class _TeacherHomeState extends State<TeacherHome> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.amber[700],
                       ),
-                      onPressed: () {
+                      onPressed: () async {
                         if (selectedGroupNumber == null ||
                             selectedMemberCount == null ||
                             memberControllers.any((c) => c.text.isEmpty) ||
@@ -247,26 +230,33 @@ class _TeacherHomeState extends State<TeacherHome> {
                             .map((c) => c.text)
                             .join(', ');
 
-                        setState(() {
-                          teams.add(
-                            TeamProject(
-                              id: DateTime.now().toString(),
+                        Navigator.pop(context);
+
+                        final result =
+                            await TeacherProjectService.createProject(
+                              teacherEmail: teacherEmail,
                               groupNumber: selectedGroupNumber!,
                               groupMembers: groupMembers,
                               projectName: projectNameController.text,
+                            );
+
+                        if (result != null) {
+                          setState(() {
+                            teams.add(TeamProject.fromMap(result));
+                          });
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Project created successfully'),
                             ),
                           );
-                        });
-
-                        // Save projects to SharedPreferences
-                        saveProjects();
-
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Project created successfully'),
-                          ),
-                        );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Failed to create project'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
                       },
                       child: const Text('Create'),
                     ),
@@ -368,18 +358,25 @@ class _TeacherHomeState extends State<TeacherHome> {
                                             teams[index] = updatedTeam;
                                           }
                                         });
-                                        // Save projects after update
-                                        saveProjects();
+                                        // Save stages to database
+                                        TeacherProjectService.updateStages(
+                                          updatedTeam.id,
+                                          updatedTeam.completionStages,
+                                        );
                                       },
-                                      onDelete: (teamId) {
-                                        setState(() {
-                                          teams.removeWhere(
-                                            (t) => t.id == teamId,
-                                          );
-                                        });
-                                        // Save projects after delete
-                                        saveProjects();
-                                        Navigator.pop(context);
+                                      onDelete: (teamId) async {
+                                        final success =
+                                            await TeacherProjectService.deleteProject(
+                                              teamId,
+                                            );
+                                        if (success) {
+                                          setState(() {
+                                            teams.removeWhere(
+                                              (t) => t.id == teamId,
+                                            );
+                                          });
+                                          Navigator.pop(context);
+                                        }
                                       },
                                     ),
                               ),
@@ -560,7 +557,7 @@ class _TeacherHomeState extends State<TeacherHome> {
 class ProjectDetailsPage extends StatefulWidget {
   final TeamProject team;
   final Function(TeamProject) onUpdate;
-  final Function(String)? onDelete;
+  final Function(int)? onDelete;
 
   const ProjectDetailsPage({
     Key? key,

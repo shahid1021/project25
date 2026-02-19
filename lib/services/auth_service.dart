@@ -50,37 +50,48 @@ class AuthService {
 
   // LOGIN
   Future<String> login(String email, String password) async {
-    final uri = Uri.parse('${ApiConfig.baseUrl}/User/login');
+    try {
+      final uri = Uri.parse('${ApiConfig.baseUrl}/User/login');
 
-    print('LOGIN URL => $uri');
+      print('LOGIN URL => $uri');
 
-    final response = await http.post(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email, 'password': password}),
-    );
+      final response = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': email, 'password': password}),
+          )
+          .timeout(const Duration(seconds: 15));
 
-    print('LOGIN STATUS => ${response.statusCode}');
-    print('LOGIN BODY => ${response.body}');
+      print('LOGIN STATUS => ${response.statusCode}');
+      print('LOGIN BODY => ${response.body}');
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
 
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('token', data['token']);
-      await prefs.setString('role', data['role']);
-      await prefs.setString('studentName', (data['name'] ?? '').toString());
-      await prefs.setString('firstName', (data['firstName'] ?? '').toString());
-      await prefs.setString('lastName', (data['lastName'] ?? '').toString());
-      await prefs.setString('email', email);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('token', data['token']);
+        await prefs.setString('role', data['role']);
+        await prefs.setString('studentName', (data['name'] ?? '').toString());
+        await prefs.setString(
+          'firstName',
+          (data['firstName'] ?? '').toString(),
+        );
+        await prefs.setString('lastName', (data['lastName'] ?? '').toString());
+        await prefs.setString('email', email);
 
-      return data['role']; // Student / Teacher
+        return data['role']; // Student / Teacher / Admin
+      }
+
+      if (response.statusCode == 401) return 'wrong_password';
+      if (response.statusCode == 403) return 'blocked';
+      if (response.statusCode == 404) return 'no_account';
+
+      return 'error';
+    } on Exception catch (e) {
+      print('LOGIN ERROR => $e');
+      return 'error';
     }
-
-    if (response.statusCode == 401) return 'wrong_password';
-    if (response.statusCode == 404) return 'no_account';
-
-    return 'error';
   }
 
   // UPDATE NAME

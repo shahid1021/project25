@@ -78,7 +78,6 @@ class _RegisterpageState extends State<Registerpage> {
     setState(() {
       _isRegisterButtonActive =
           _firstnameController.text.isNotEmpty &&
-          _lastnameController.text.isNotEmpty &&
           _emailController.text.isNotEmpty &&
           _passwordController.text.isNotEmpty &&
           _confirmpasswordController.text.isNotEmpty &&

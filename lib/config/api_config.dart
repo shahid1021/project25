@@ -1,4 +1,3 @@
-
 class ApiConfig {
-  static const String baseUrl = 'https://test.fluxionsolution.com/api';
+  static const String baseUrl = 'http://10.240.32.82:5171/api';
 }
