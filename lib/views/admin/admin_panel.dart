@@ -54,16 +54,37 @@ class _AdminPanelState extends State<AdminPanel> {
     });
   }
 
-  Future<void> _logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
-    if (mounted) {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const LoginPage()),
-        (route) => false,
-      );
-    }
+  void _showLogoutPopup(BuildContext context) {
+    showDialog(
+      context: context,
+      builder:
+          (_) => AlertDialog(
+            title: const Text("Logout"),
+            content: const Text("Are you sure you want to logout?"),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Cancel"),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE5A72E),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () async {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.clear();
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginPage()),
+                    (_) => false,
+                  );
+                },
+                child: const Text("Logout"),
+              ),
+            ],
+          ),
+    );
   }
 
   @override
@@ -270,7 +291,7 @@ class _AdminPanelState extends State<AdminPanel> {
                         color: Colors.transparent,
                         child: InkWell(
                           borderRadius: BorderRadius.circular(10),
-                          onTap: _logout,
+                          onTap: () => _showLogoutPopup(context),
                           child: Container(
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(vertical: 10),
