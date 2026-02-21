@@ -17,6 +17,7 @@ class UploadPage extends StatefulWidget {
 
 class _UploadPageState extends State<UploadPage> {
   String? selectedFileName;
+  String? selectedFilePath;
   String? extractedText;
   bool isLoading = false;
   Map<String, dynamic>? detectionResult;
@@ -57,7 +58,7 @@ class _UploadPageState extends State<UploadPage> {
   }
 
   Future<void> checkFileForDuplicates() async {
-    if (selectedFileName == null || extractedText == null) {
+    if (selectedFileName == null || selectedFilePath == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please upload a file first')),
       );
@@ -70,20 +71,32 @@ class _UploadPageState extends State<UploadPage> {
     });
 
     try {
-      // Call Backend AI API to detect duplicates
-      final response = await http
-          .post(
-            Uri.parse('${ApiConfig.baseUrl}/ai/detect-duplicate'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'abstractText': extractedText,
-              'filePath': selectedFileName,
-            }),
-          )
-          .timeout(const Duration(seconds: 30));
+      // Send file as multipart for proper server-side text extraction
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('${ApiConfig.baseUrl}/ai/detect-duplicate'),
+      );
 
-      if (response.statusCode == 200) {
-        final result = jsonDecode(response.body);
+      request.files.add(
+        await http.MultipartFile.fromPath('file', selectedFilePath!),
+      );
+
+      var streamedResponse = await request.send().timeout(
+        const Duration(seconds: 120),
+      );
+      var responseBody = await streamedResponse.stream.bytesToString();
+
+      // Print the full API response body to console for debugging
+      print('Duplicate Detection API Response:');
+      print(responseBody);
+
+      if (streamedResponse.statusCode == 200) {
+        final result = jsonDecode(responseBody);
+        // Print only debug fields for easy visibility
+        print('DEBUG EXTRACTED TEXT:');
+        print(result['debugExtractedText']);
+        print('DEBUG DATABASE ABSTRACTIONS:');
+        print(result['debugDatabaseAbstractions']);
         setState(() {
           detectionResult = result;
           isLoading = false;
@@ -104,7 +117,9 @@ class _UploadPageState extends State<UploadPage> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: ${response.statusCode} - ${response.body}'),
+            content: Text(
+              'Error: ${streamedResponse.statusCode} - $responseBody',
+            ),
           ),
         );
       }
@@ -119,57 +134,7 @@ class _UploadPageState extends State<UploadPage> {
     }
   }
 
-  Future<void> checkWithAiSimilarity() async {
-    if (selectedFileName == null || extractedText == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please upload a file first')),
-      );
-      return;
-    }
-
-    setState(() {
-      isLoading = true;
-      detectionResult = null;
-    });
-
-    try {
-      final response = await http
-          .post(
-            Uri.parse('${ApiConfig.baseUrl}/ai/ai-similarity'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'abstractText': extractedText}),
-          )
-          .timeout(const Duration(seconds: 120));
-
-      if (response.statusCode == 200) {
-        final result = jsonDecode(response.body);
-        setState(() {
-          detectionResult = result;
-          isLoading = false;
-        });
-
-        if (mounted) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AiSimilarityResultsPage(result: result),
-            ),
-          );
-        }
-      } else {
-        setState(() => isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${response.statusCode}')),
-        );
-      }
-    } catch (e) {
-      setState(() => isLoading = false);
-      print('AI Similarity Error: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error running AI similarity check')),
-      );
-    }
-  }
+  // Removed AI similarity check function
 
   Future<void> pickFile() async {
     bool allowed = await requestStoragePermission();
@@ -199,6 +164,7 @@ class _UploadPageState extends State<UploadPage> {
 
       setState(() {
         selectedFileName = file.name;
+        selectedFilePath = file.path;
         extractedText = text;
       });
 
@@ -380,30 +346,6 @@ class _UploadPageState extends State<UploadPage> {
                               ],
                             ),
                             const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: ElevatedButton.icon(
-                                    icon: const Icon(Icons.psychology_rounded),
-                                    label: const Text(
-                                      'AI Deep Similarity Check',
-                                      style: TextStyle(fontSize: 16),
-                                    ),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF6C63FF),
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 16,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                    onPressed: checkWithAiSimilarity,
-                                  ),
-                                ),
-                              ],
-                            ),
                           ],
                         ),
                       const SizedBox(height: 20),
@@ -593,16 +535,13 @@ class DuplicateResultsPage extends StatefulWidget {
 }
 
 class _DuplicateResultsPageState extends State<DuplicateResultsPage> {
-  bool showAllNewKeywords = false;
-  bool showAllMatchingKeywords = false;
-
   @override
   Widget build(BuildContext context) {
     final isDuplicate = widget.result['isDuplicate'] ?? false;
-    final similarProjects = widget.result['similarProjects'] ?? [];
-    final matchingKeywords = widget.result['matchingKeywords'] ?? [];
-    final newKeywords = widget.result['newKeywords'] ?? [];
-    final newFeatures = widget.result['newFeatures'] ?? [];
+    final similarProjects =
+        widget.result['similarProjects'] as List<dynamic>? ?? [];
+    final newFeatures = widget.result['newFeatures'] as List<dynamic>? ?? [];
+    final totalChecked = widget.result['totalChecked'] ?? 0;
 
     return Scaffold(
       appBar: AppBar(
@@ -612,7 +551,6 @@ class _DuplicateResultsPageState extends State<DuplicateResultsPage> {
         ),
         backgroundColor: Colors.white,
         elevation: 0,
-        scrolledUnderElevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
       ),
       body: SingleChildScrollView(
@@ -621,7 +559,7 @@ class _DuplicateResultsPageState extends State<DuplicateResultsPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Status Header
+              // ================= STATUS CARD =================
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -675,17 +613,21 @@ class _DuplicateResultsPageState extends State<DuplicateResultsPage> {
                   ],
                 ),
               ),
+
               const SizedBox(height: 24),
 
-              // Similar Projects Section
+              // ================= SIMILAR PROJECTS =================
               if (isDuplicate && similarProjects.isNotEmpty) ...[
                 const Text(
                   'Similar Projects',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 12),
-                ...similarProjects.asMap().entries.map((entry) {
-                  final project = entry.value;
+
+                ...similarProjects.map((project) {
+                  final similarity = project['similarity'] ?? 0;
+                  final reason = project['reason'] ?? '';
+
                   return Container(
                     margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.all(14),
@@ -697,8 +639,8 @@ class _DuplicateResultsPageState extends State<DuplicateResultsPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // ===== TITLE + MATCH =====
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Expanded(
                               child: Text(
@@ -707,307 +649,112 @@ class _DuplicateResultsPageState extends State<DuplicateResultsPage> {
                                   fontSize: 15,
                                   fontWeight: FontWeight.bold,
                                 ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
+                            const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 10,
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFE5A72E).withOpacity(0.2),
+                                color:
+                                    similarity >= 70
+                                        ? Colors.red.withOpacity(0.2)
+                                        : similarity >= 40
+                                        ? Colors.orange.withOpacity(0.2)
+                                        : const Color(
+                                          0xFFE5A72E,
+                                        ).withOpacity(0.2),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
-                                'Similarity: ${project['similarity'] ?? 0}%',
-                                style: const TextStyle(
+                                '$similarity% Match',
+                                style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFFE5A72E),
+                                  color:
+                                      similarity >= 70
+                                          ? Colors.red
+                                          : similarity >= 40
+                                          ? Colors.orange
+                                          : const Color(0xFFE5A72E),
                                 ),
                               ),
                             ),
                           ],
                         ),
+
                         const SizedBox(height: 8),
-                        Text(
-                          'Batch: ${project['batch'] ?? 'N/A'}',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey[700],
+
+                        if (reason.toString().isNotEmpty)
+                          Text(
+                            reason.toString(),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[700],
+                              height: 1.4,
+                              fontStyle: FontStyle.italic,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Group: ${project['group'] ?? 'N/A'}',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey[700],
+
+                        const SizedBox(height: 10),
+
+                        // ===== VIEW DETAILS BUTTON =====
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            icon: const Icon(Icons.visibility, size: 18),
+                            label: const Text("View Details"),
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (context) {
+                                  return AlertDialog(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    title: Text(project['name'] ?? 'Project'),
+                                    content: SingleChildScrollView(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          _detailRow("Batch", project['batch']),
+                                          _detailRow("Group", project['group']),
+                                          _detailRow(
+                                            "Created By",
+                                            project['createdBy'],
+                                          ),
+                                          _detailRow(
+                                            "Team Members",
+                                            project['teamMembers'],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: const Text("Close"),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+                            },
                           ),
                         ),
                       ],
                     ),
                   );
                 }).toList(),
+
                 const SizedBox(height: 24),
               ],
 
-              // New Keywords Section
-              if (newKeywords.isNotEmpty) ...[
-                const Text(
-                  'New Keywords (Not Found in Existing Projects)',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    ...newKeywords
-                        .take(showAllNewKeywords ? newKeywords.length : 6)
-                        .map<Widget>(
-                          (keyword) => Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.withOpacity(0.1),
-                              border: Border.all(
-                                color: Colors.blue.withOpacity(0.3),
-                              ),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              keyword.toString(),
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.blue,
-                              ),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    if (newKeywords.length > 6)
-                      GestureDetector(
-                        onTap:
-                            () => setState(
-                              () => showAllNewKeywords = !showAllNewKeywords,
-                            ),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.1),
-                            border: Border.all(
-                              color: Colors.blue.withOpacity(0.3),
-                            ),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            showAllNewKeywords
-                                ? 'Less'
-                                : '+${newKeywords.length - 6} More',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-              ],
-
-              // Matching Keywords Section
-              if (matchingKeywords.isNotEmpty) ...[
-                const Text(
-                  'Matching Keywords (Found in Existing Projects)',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    ...matchingKeywords
-                        .take(
-                          showAllMatchingKeywords ? matchingKeywords.length : 6,
-                        )
-                        .map<Widget>(
-                          (keyword) => Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.red.withOpacity(0.1),
-                              border: Border.all(
-                                color: Colors.red.withOpacity(0.3),
-                              ),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              keyword.toString(),
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.red,
-                              ),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    if (matchingKeywords.length > 6)
-                      GestureDetector(
-                        onTap:
-                            () => setState(
-                              () =>
-                                  showAllMatchingKeywords =
-                                      !showAllMatchingKeywords,
-                            ),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.red.withOpacity(0.1),
-                            border: Border.all(
-                              color: Colors.red.withOpacity(0.3),
-                            ),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            showAllMatchingKeywords
-                                ? 'Less'
-                                : '+${matchingKeywords.length - 6} More',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.red,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-              ],
-
-              // New Features Section
-              if (newFeatures.isNotEmpty) ...[
-                const Text(
-                  'New Features / Differences',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children:
-                      newFeatures
-                          .map<Widget>(
-                            (feature) => Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.green.withOpacity(0.1),
-                                border: Border.all(
-                                  color: Colors.green.withOpacity(0.3),
-                                ),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                feature.toString(),
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.green,
-                                ),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                ),
-                const SizedBox(height: 24),
-              ],
-
-              // Detailed Analysis
-              if (widget.result['analysis'] != null) ...[
-                const Text(
-                  'Detailed Analysis',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[50],
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    widget.result['analysis'].toString(),
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey[700],
-                      height: 1.6,
-                    ),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 24),
-
-              // AI Recommendation
-              if (widget.result['recommendation'] != null &&
-                  widget.result['recommendation'].toString().isNotEmpty) ...[
-                const Text(
-                  'AI Recommendation',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF6C63FF).withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: const Color(0xFF6C63FF).withOpacity(0.2),
-                    ),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(
-                        Icons.lightbulb_outline,
-                        color: Color(0xFF6C63FF),
-                        size: 20,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          widget.result['recommendation'].toString(),
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey[800],
-                            height: 1.6,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
-
-              // Action Buttons
+              // ================= ACTION BUTTONS =================
               Row(
                 children: [
                   Expanded(
@@ -1017,34 +764,8 @@ class _DuplicateResultsPageState extends State<DuplicateResultsPage> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.grey[300],
                         foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
                       ),
                       onPressed: () => Navigator.pop(context),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.save),
-                      label: const Text('Save Analysis'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE5A72E),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Analysis saved successfully'),
-                          ),
-                        );
-                      },
                     ),
                   ),
                 ],
@@ -1052,6 +773,25 @@ class _DuplicateResultsPageState extends State<DuplicateResultsPage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // ================= DETAIL ROW =================
+  Widget _detailRow(String title, dynamic value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("$title: ", style: const TextStyle(fontWeight: FontWeight.bold)),
+          Expanded(
+            child: Text(
+              value?.toString() ?? "N/A",
+              style: const TextStyle(fontSize: 13),
+            ),
+          ),
+        ],
       ),
     );
   }

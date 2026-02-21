@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class NotificationItem {
+  final int id;
   final String userName;
   final String action;
   final String fileName;
@@ -15,6 +16,7 @@ class NotificationItem {
   final bool isTeacherMessage;
 
   NotificationItem({
+    required this.id,
     required this.userName,
     required this.action,
     required this.fileName,
@@ -74,6 +76,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               notificationsList
                   .map(
                     (item) => NotificationItem(
+                      id: item['id'] ?? 0,
                       userName: item['senderName'] ?? 'Teacher',
                       action: 'announced',
                       fileName: item['message'] ?? '',
@@ -102,6 +105,66 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void dispose() {
     _messageController.dispose();
     super.dispose();
+  }
+
+  // ================= DELETE NOTIFICATION =================
+  Future<void> _deleteNotification(NotificationItem item) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Delete Announcement'),
+            content: const Text(
+              'Are you sure you want to delete this announcement?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      final response = await http.delete(
+        Uri.parse('${ApiConfig.baseUrl}/notifications/${item.id}'),
+      );
+
+      if (response.statusCode == 200) {
+        await loadMessagesFromDatabase();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Announcement deleted'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to delete: ${response.statusCode}')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
   }
 
   void _showComposeDialog() {
@@ -224,7 +287,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
-  final List<NotificationItem> thisWeekNotifications = [];
   final List<NotificationItem> thisMonthNotifications = [];
 
   @override
@@ -276,20 +338,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         bottom: 10,
                       ),
                       child: RichText(
-                        text: const TextSpan(
+                        text: TextSpan(
                           text: 'You have ',
-                          style: TextStyle(color: Colors.grey, fontSize: 14),
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 14,
+                          ),
                           children: [
                             TextSpan(
-                              text: '3 Notifications',
-                              style: TextStyle(
+                              text:
+                                  '${todayNotifications.length} Announcement${todayNotifications.length == 1 ? '' : 's'}',
+                              style: const TextStyle(
                                 color: Color(0xFFE5A72E),
                                 fontWeight: FontWeight.w500,
                               ),
-                            ),
-                            TextSpan(
-                              text: 'no.',
-                              style: TextStyle(color: Colors.grey),
                             ),
                           ],
                         ),
@@ -301,7 +363,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         vertical: 8,
                       ),
                       child: Text(
-                        'Today',
+                        'Your Announcements',
                         style: TextStyle(
                           fontSize: 25,
                           fontWeight: FontWeight.bold,
@@ -309,9 +371,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         ),
                       ),
                     ),
-                    SizedBox(
-                      height: 110, // show 2 messages; scroll for more
-                      child: ListView.builder(
+                    if (todayNotifications.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.all(32),
+                        child: Center(
+                          child: Text(
+                            'No announcements yet',
+                            style: TextStyle(color: Colors.grey, fontSize: 16),
+                          ),
+                        ),
+                      )
+                    else
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
                         itemCount: todayNotifications.length,
                         itemBuilder: (context, index) {
                           return _buildNotificationItem(
@@ -320,68 +393,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           );
                         },
                       ),
-                    ),
-
-                    const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Divider(thickness: 1),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      child: Text(
-                        'This week',
-                        style: TextStyle(
-                          fontSize: 25,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      height: 160,
-                      child: ListView.builder(
-                        itemCount: thisWeekNotifications.length,
-                        itemBuilder: (context, index) {
-                          return _buildNotificationItem(
-                            thisWeekNotifications[index],
-                            showDot: false,
-                          );
-                        },
-                      ),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Divider(thickness: 1),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      child: Text(
-                        'This Month',
-                        style: TextStyle(
-                          fontSize: 25,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      height: 160,
-                      child: ListView.builder(
-                        itemCount: thisWeekNotifications.length,
-                        itemBuilder: (context, index) {
-                          return _buildNotificationItem(
-                            thisWeekNotifications[index],
-                            showDot: false,
-                          );
-                        },
-                      ),
-                    ),
 
                     const SizedBox(height: 20),
                   ],
@@ -399,72 +410,101 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     NotificationItem item, {
     required bool showDot,
   }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (showDot)
-            Container(
-              margin: const EdgeInsets.only(right: 8, top: 12),
-              width: 8,
-              height: 8,
-              decoration: const BoxDecoration(
-                color: Colors.red,
-                shape: BoxShape.circle,
-              ),
-            ),
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: _getAvatarColor(item.avatarColor),
-            child: Text(
-              item.userName[0].toUpperCase(),
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                RichText(
-                  text: TextSpan(
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.black87,
-                      height: 1.4,
-                    ),
-                    children: [
-                      TextSpan(
-                        text: item.userName,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFFE5A72E),
-                        ),
-                      ),
-                      TextSpan(text: ' ${item.action} '),
-                      TextSpan(
-                        text: item.fileName,
-                        style: const TextStyle(fontWeight: FontWeight.w500),
-                      ),
-                      TextSpan(
-                        text: ' · ${item.time}',
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
+    return Dismissible(
+      key: Key('notification_${item.id}'),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.red.shade100,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Icon(Icons.delete, color: Colors.red, size: 28),
+      ),
+      confirmDismiss: (direction) async {
+        _deleteNotification(item);
+        return false; // We handle removal via reload
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (showDot)
+              Container(
+                margin: const EdgeInsets.only(right: 8, top: 12),
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
                 ),
-              ],
+              ),
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: _getAvatarColor(item.avatarColor),
+              child: Text(
+                item.userName[0].toUpperCase(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  RichText(
+                    text: TextSpan(
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87,
+                        height: 1.4,
+                      ),
+                      children: [
+                        TextSpan(
+                          text: item.userName,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFE5A72E),
+                          ),
+                        ),
+                        TextSpan(text: ' ${item.action} '),
+                        TextSpan(
+                          text: item.fileName,
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                        TextSpan(
+                          text: ' · ${item.time}',
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Delete icon button
+            IconButton(
+              icon: const Icon(
+                Icons.delete_outline,
+                color: Colors.red,
+                size: 20,
+              ),
+              onPressed: () => _deleteNotification(item),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ],
+        ),
       ),
     );
   }

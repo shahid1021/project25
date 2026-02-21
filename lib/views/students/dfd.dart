@@ -2,8 +2,13 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:open_file/open_file.dart';
 import 'package:project_management/config/api_config.dart';
 
 class DfdSupportScreen extends StatefulWidget {
@@ -21,6 +26,85 @@ class _DfdSupportScreenState extends State<DfdSupportScreen> {
   bool isLoading = false;
   String? dfdGuidance;
   bool showAnimation = false;
+
+  // ================= DOWNLOAD DFD AS PDF =================
+  Future<void> downloadDfdAsPdf() async {
+    if (dfdGuidance == null) return;
+
+    try {
+      // Load a Unicode-compatible font
+      final fontData = await rootBundle.load('assets/fonts/Roboto-Regular.ttf');
+      final ttf = pw.Font.ttf(fontData);
+      final fontDataBold = await rootBundle.load(
+        'assets/fonts/Roboto-Bold.ttf',
+      );
+      final ttfBold = pw.Font.ttf(fontDataBold);
+
+      final pdf = pw.Document();
+
+      // Split text into paragraphs so content flows across pages
+      final paragraphs = dfdGuidance!.split('\n');
+
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(32),
+          build:
+              (pw.Context context) => [
+                pw.Text(
+                  'DFD Creation Guide',
+                  style: pw.TextStyle(
+                    font: ttfBold,
+                    fontSize: 22,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 16),
+                ...paragraphs.map(
+                  (para) => pw.Padding(
+                    padding: const pw.EdgeInsets.only(bottom: 4),
+                    child: pw.Text(
+                      para,
+                      style: pw.TextStyle(
+                        font: ttf,
+                        fontSize: 13,
+                        lineSpacing: 5,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+        ),
+      );
+
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File(
+        '${dir.path}/DFD_Guide_${DateTime.now().millisecondsSinceEpoch}.pdf',
+      );
+      await file.writeAsBytes(await pdf.save());
+
+      // Open the saved PDF
+      await OpenFile.open(file.path);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('PDF downloaded successfully!'),
+            backgroundColor: Color(0xFFE5A72E),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to download: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
   // ================= FILE PICKER =================
   Future<void> pickAbstractFile() async {
@@ -280,7 +364,47 @@ class _DfdSupportScreenState extends State<DfdSupportScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 30),
+                const SizedBox(height: 16),
+
+                // ================= DOWNLOAD BUTTON =================
+                GestureDetector(
+                  onTap: downloadDfdAsPdf,
+                  child: Container(
+                    width: width * 0.6,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: const Color(0xFFE5A72E),
+                        width: 2,
+                      ),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.download_rounded,
+                          color: Color(0xFFE5A72E),
+                          size: 22,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Download PDF',
+                          style: TextStyle(
+                            color: Color(0xFFE5A72E),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
 
                 // ================= UPLOAD NEW FILE BUTTON =================
                 GestureDetector(

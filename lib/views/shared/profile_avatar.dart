@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:project_management/services/profile_photo_service.dart';
@@ -142,10 +143,40 @@ class _ProfileAvatarWidgetState extends State<ProfileAvatarWidget> {
         imageQuality: 85,
       );
       if (picked != null) {
+        // Open cropper for adjusting the image
+        final croppedFile = await ImageCropper().cropImage(
+          sourcePath: picked.path,
+          uiSettings: [
+            AndroidUiSettings(
+              toolbarTitle: 'Adjust Photo',
+              toolbarColor: const Color(0xFFE5A72E),
+              toolbarWidgetColor: Colors.white,
+              activeControlsWidgetColor: const Color(0xFFE5A72E),
+              initAspectRatio: CropAspectRatioPreset.square,
+              lockAspectRatio: false,
+              aspectRatioPresets: [
+                CropAspectRatioPreset.square,
+                CropAspectRatioPreset.original,
+                CropAspectRatioPreset.ratio4x3,
+              ],
+            ),
+            IOSUiSettings(
+              title: 'Adjust Photo',
+              aspectRatioPresets: [
+                CropAspectRatioPreset.square,
+                CropAspectRatioPreset.original,
+                CropAspectRatioPreset.ratio4x3,
+              ],
+            ),
+          ],
+        );
+
+        if (croppedFile == null) return; // User cancelled cropping
+
         // Save to app directory for persistence
         final appDir = await getApplicationDocumentsDirectory();
         final savedPath = '${appDir.path}/profile_photo.jpg';
-        final savedFile = await File(picked.path).copy(savedPath);
+        final savedFile = await File(croppedFile.path).copy(savedPath);
         await _saveAvatar(type: 'image', path: savedFile.path);
 
         // Upload to server
