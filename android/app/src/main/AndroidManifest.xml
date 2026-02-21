@@ -19,7 +19,7 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
 
     <application
-    android:label="project_management"
+    android:label="Pryxel"
     android:name="${applicationName}"
     android:icon="@mipmap/ic_launcher"
     android:usesCleartextTraffic="true">
