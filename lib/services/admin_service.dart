@@ -69,6 +69,40 @@ class AdminService {
     }
   }
 
+  Future<Map<String, dynamic>?> createUser({
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String password,
+    required String role,
+    String? registerNumber,
+  }) async {
+    try {
+      final body = {
+        'firstName': firstName,
+        'lastName': lastName,
+        'email': email,
+        'password': password,
+        'role': role,
+      };
+      if (registerNumber != null && registerNumber.isNotEmpty) {
+        body['registerNumber'] = registerNumber;
+      }
+      final response = await http.post(
+        Uri.parse('$baseUrl/users'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      print('Create user failed: ${response.statusCode} ${response.body}');
+    } catch (e) {
+      print('Error creating user: $e');
+    }
+    return null;
+  }
+
   // ==================== PROJECTS ====================
   Future<List<dynamic>> getAllProjects() async {
     try {
@@ -98,7 +132,7 @@ class AdminService {
   // ==================== NOTIFICATIONS ====================
   Future<List<dynamic>> getAllNotifications() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/notifications'));
+      final response = await http.get(Uri.parse('$baseUrl/notifications/get'));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return data['notifications'] ?? [];

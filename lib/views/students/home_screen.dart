@@ -25,12 +25,20 @@ class _StudentHomeState extends State<StudentHome> {
   String studentName = '';
   int unreadMessageCount = 0;
 
+  // Project data
+  String projectName = '';
+  String projectStatus = '';
+  int completedStages = 0;
+  int totalStages = 10;
+  bool projectLoading = true;
+  bool hasProject = false;
+
   @override
   void initState() {
     super.initState();
     loadStudentName();
     checkForNewMessages();
-    // Start background message checker
+    fetchStudentProject();
     BackgroundMessageChecker.startPeriodicCheck();
   }
 
@@ -41,15 +49,65 @@ class _StudentHomeState extends State<StudentHome> {
     });
   }
 
+  Future<void> fetchStudentProject() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final registerNumber = prefs.getString('registerNumber') ?? '';
+
+      if (registerNumber.isEmpty) {
+        setState(() => projectLoading = false);
+        return;
+      }
+
+      final response = await http
+          .get(
+            Uri.parse(
+              '${ApiConfig.baseUrl}/teacher-projects/by-student?registerNumber=$registerNumber',
+            ),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+        if (data.isNotEmpty) {
+          final project = data[0]; // First (most recent) project
+          final stages = List<bool>.from(project['completionStages'] ?? []);
+          final completed = stages.where((s) => s).length;
+
+          setState(() {
+            projectName = project['projectName'] ?? 'Unnamed Project';
+            projectStatus = project['status'] ?? 'Ongoing';
+            completedStages = completed;
+            totalStages = stages.length;
+            hasProject = true;
+            projectLoading = false;
+          });
+        } else {
+          setState(() => projectLoading = false);
+        }
+      } else {
+        setState(() => projectLoading = false);
+      }
+    } catch (e) {
+      print('Error fetching student project: $e');
+      setState(() => projectLoading = false);
+    }
+  }
+
   Future<void> checkForNewMessages() async {
     try {
-      final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/notifications/get'),
-      );
+      final prefs = await SharedPreferences.getInstance();
+      final registerNumber = prefs.getString('registerNumber') ?? '';
+
+      // Student view: only get notifications from their teacher + admin broadcasts
+      final url =
+          registerNumber.isNotEmpty
+              ? '${ApiConfig.baseUrl}/notifications/get?registerNumber=${Uri.encodeComponent(registerNumber)}'
+              : '${ApiConfig.baseUrl}/notifications/get';
+      final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final count = (data['notifications'] as List?)?.length ?? 0;
-        final prefs = await SharedPreferences.getInstance();
         final lastSeenCount = prefs.getInt('lastSeenMessageCount') ?? 0;
 
         if (count > lastSeenCount) {
@@ -159,51 +217,134 @@ class _StudentHomeState extends State<StudentHome> {
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
             // Project Name Card
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.only(
-                top: 40,
-                left: 20,
-                right: 20,
-                bottom: 20,
-              ),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE5A72E),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Project Name',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 30,
-                      fontWeight: FontWeight.bold,
-                    ),
+            projectLoading
+                ? Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(30),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE5A72E),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  const SizedBox(height: 20),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Text(
-                      'In progress',
-                      style: TextStyle(
-                        color: Colors.blue,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                  child: const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  ),
+                )
+                : hasProject
+                ? Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.only(
+                    top: 25,
+                    left: 20,
+                    right: 20,
+                    bottom: 20,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE5A72E),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        projectName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
+                      const SizedBox(height: 15),
+                      // Progress bar
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: LinearProgressIndicator(
+                          value:
+                              totalStages > 0
+                                  ? completedStages / totalStages
+                                  : 0,
+                          backgroundColor: Colors.white.withOpacity(0.3),
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                          minHeight: 8,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              projectStatus == 'Completed'
+                                  ? 'Completed'
+                                  : 'In progress',
+                              style: TextStyle(
+                                color:
+                                    projectStatus == 'Completed'
+                                        ? Colors.green
+                                        : Colors.blue,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '${totalStages > 0 ? ((completedStages / totalStages) * 100).toInt() : 0}% completed',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.9),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
+                )
+                : Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.only(
+                    top: 40,
+                    left: 20,
+                    right: 20,
+                    bottom: 20,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE5A72E),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'No Project Assigned',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Your teacher hasn\'t assigned a project yet',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
             const SizedBox(height: 30),
             Expanded(
               child: ListView(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:ui';
 import 'package:project_management/services/auth_service.dart';
 import 'package:project_management/views/auth/login_screen.dart';
@@ -13,14 +14,20 @@ class Registerpage extends StatefulWidget {
 class _RegisterpageState extends State<Registerpage> {
   final TextEditingController _firstnameController = TextEditingController();
   final TextEditingController _lastnameController = TextEditingController();
+  final TextEditingController _registerNumberController =
+      TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmpasswordController =
       TextEditingController();
 
   // FocusNodes to detect when user taps the fields
+  final FocusNode _lastNameFocus = FocusNode();
   final FocusNode _passwordFocus = FocusNode();
   final FocusNode _confirmPasswordFocus = FocusNode();
+
+  // Last name optional label
+  bool _showLastNameOptional = false;
 
   // Visibility control
   bool _passwordVisible = false;
@@ -53,6 +60,13 @@ class _RegisterpageState extends State<Registerpage> {
   void initState() {
     super.initState();
 
+    _lastNameFocus.addListener(() {
+      setState(() {
+        _showLastNameOptional =
+            _lastNameFocus.hasFocus && _lastnameController.text.isEmpty;
+      });
+    });
+
     _passwordFocus.addListener(() {
       setState(() {
         _showPasswordEye = _passwordFocus.hasFocus;
@@ -68,6 +82,7 @@ class _RegisterpageState extends State<Registerpage> {
     // ***** NEW: Listen to all fields *****
     _firstnameController.addListener(_updateRegisterButtonState);
     _lastnameController.addListener(_updateRegisterButtonState);
+    _registerNumberController.addListener(_updateRegisterButtonState);
     _emailController.addListener(_updateRegisterButtonState);
     _passwordController.addListener(_updateRegisterButtonState);
     _confirmpasswordController.addListener(_updateRegisterButtonState);
@@ -78,6 +93,7 @@ class _RegisterpageState extends State<Registerpage> {
     setState(() {
       _isRegisterButtonActive =
           _firstnameController.text.isNotEmpty &&
+          _registerNumberController.text.isNotEmpty &&
           _emailController.text.isNotEmpty &&
           _passwordController.text.isNotEmpty &&
           _confirmpasswordController.text.isNotEmpty &&
@@ -164,6 +180,35 @@ class _RegisterpageState extends State<Registerpage> {
                           _buildTextField(
                             controller: _lastnameController,
                             hint: 'Last Name',
+                            focusNode: _lastNameFocus,
+                            onChanged: (value) {
+                              setState(() {
+                                _showLastNameOptional =
+                                    _lastNameFocus.hasFocus && value.isEmpty;
+                              });
+                            },
+                            suffixIcon:
+                                _showLastNameOptional
+                                    ? const Padding(
+                                      padding: EdgeInsets.only(right: 16),
+                                      child: Text(
+                                        'Optional',
+                                        style: TextStyle(
+                                          color: Colors.white54,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    )
+                                    : null,
+                          ),
+                          const SizedBox(height: 20),
+
+                          // REGISTER NUMBER
+                          _buildTextField(
+                            controller: _registerNumberController,
+                            hint: 'Register Number',
+                            textCapitalization: TextCapitalization.characters,
+                            inputFormatters: [UpperCaseTextFormatter()],
                           ),
                           const SizedBox(height: 20),
 
@@ -307,6 +352,10 @@ class _RegisterpageState extends State<Registerpage> {
                                                 password:
                                                     _passwordController.text
                                                         .trim(),
+                                                registerNumber:
+                                                    _registerNumberController
+                                                        .text
+                                                        .trim(),
                                               );
 
                                           if (result['success'] == true) {
@@ -449,6 +498,8 @@ class _RegisterpageState extends State<Registerpage> {
     Function(String)? onChanged,
     Widget? suffixIcon,
     FocusNode? focusNode,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -461,6 +512,8 @@ class _RegisterpageState extends State<Registerpage> {
         focusNode: focusNode,
         obscureText: obscureText,
         onChanged: onChanged,
+        textCapitalization: textCapitalization,
+        inputFormatters: inputFormatters,
         style: const TextStyle(color: Colors.white70),
         decoration: InputDecoration(
           hintText: hint,
@@ -473,6 +526,20 @@ class _RegisterpageState extends State<Registerpage> {
           suffixIcon: suffixIcon,
         ),
       ),
+    );
+  }
+}
+
+// Force uppercase input formatter
+class UpperCaseTextFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    return TextEditingValue(
+      text: newValue.text.toUpperCase(),
+      selection: newValue.selection,
     );
   }
 }

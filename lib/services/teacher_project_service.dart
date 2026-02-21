@@ -72,4 +72,28 @@ class TeacherProjectService {
       return false;
     }
   }
+
+  static Future<Map<String, dynamic>?> addMember(
+    int projectId,
+    String registerNumber,
+  ) async {
+    try {
+      final response = await http.put(
+        Uri.parse(
+          '${ApiConfig.baseUrl}/teacher-projects/$projectId/add-member',
+        ),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'registerNumber': registerNumber}),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      } else {
+        final error = jsonDecode(response.body);
+        return {'error': error['error'] ?? 'Failed to add member'};
+      }
+    } catch (e) {
+      print('Error adding member: $e');
+      return null;
+    }
+  }
 }

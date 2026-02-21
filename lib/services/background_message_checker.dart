@@ -22,8 +22,16 @@ void callbackDispatcher() {
 
 Future<void> checkForNewMessages() async {
   try {
+    final prefs = await SharedPreferences.getInstance();
+    final registerNumber = prefs.getString('registerNumber') ?? '';
+
+    // Student view: only get notifications from their teacher + admin broadcasts
+    final url =
+        registerNumber.isNotEmpty
+            ? '${ApiConfig.baseUrl}/notifications/get?registerNumber=${Uri.encodeComponent(registerNumber)}'
+            : '${ApiConfig.baseUrl}/notifications/get';
     final response = await http
-        .get(Uri.parse('${ApiConfig.baseUrl}/notifications/get'))
+        .get(Uri.parse(url))
         .timeout(const Duration(seconds: 10));
 
     if (response.statusCode == 200) {
@@ -31,7 +39,6 @@ Future<void> checkForNewMessages() async {
       final notificationsList = data['notifications'] as List?;
 
       if (notificationsList != null && notificationsList.isNotEmpty) {
-        final prefs = await SharedPreferences.getInstance();
         final lastSeenCount = prefs.getInt('lastSeenMessageCount') ?? 0;
         final currentCount = notificationsList.length;
 

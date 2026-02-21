@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:project_management/services/teacher_project_service.dart';
 import 'package:project_management/views/students/settings.dart';
@@ -179,9 +180,12 @@ class _TeacherHomeState extends State<TeacherHome> {
                               padding: const EdgeInsets.only(bottom: 12),
                               child: TextField(
                                 controller: memberControllers[index],
+                                textCapitalization:
+                                    TextCapitalization.characters,
+                                inputFormatters: [_UpperCaseTextFormatter()],
                                 decoration: InputDecoration(
-                                  labelText: 'Member ${index + 1} Name',
-                                  hintText: 'Enter member name',
+                                  labelText: 'Member ${index + 1} Register No.',
+                                  hintText: 'Enter register number',
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
                                   ),
@@ -572,6 +576,7 @@ class ProjectDetailsPage extends StatefulWidget {
 
 class _ProjectDetailsPageState extends State<ProjectDetailsPage> {
   late TeamProject team;
+  final int maxMembers = 4;
 
   final List<String> stageTitles = [
     'Idea Approved',
@@ -592,11 +597,94 @@ class _ProjectDetailsPageState extends State<ProjectDetailsPage> {
     team = widget.team;
   }
 
+  int get _memberCount =>
+      team.groupMembers.split(',').where((m) => m.trim().isNotEmpty).length;
+
   void _updateStage(int index, bool value) {
     setState(() {
       team.completionStages[index] = value;
       widget.onUpdate(team);
     });
+  }
+
+  void _showAddMemberDialog() {
+    final regController = TextEditingController();
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Add New Member'),
+            content: TextField(
+              controller: regController,
+              textCapitalization: TextCapitalization.characters,
+              inputFormatters: [_UpperCaseTextFormatter()],
+              decoration: InputDecoration(
+                labelText: 'Register Number',
+                hintText: 'Enter register number',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE5A72E),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () async {
+                  final regNo = regController.text.trim();
+                  if (regNo.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please enter a register number'),
+                      ),
+                    );
+                    return;
+                  }
+                  Navigator.pop(context);
+                  final result = await TeacherProjectService.addMember(
+                    team.id,
+                    regNo,
+                  );
+                  if (result != null && result.containsKey('groupMembers')) {
+                    setState(() {
+                      team = TeamProject(
+                        id: team.id,
+                        groupNumber: team.groupNumber,
+                        groupMembers: result['groupMembers'],
+                        projectName: team.projectName,
+                        completionStages: List<bool>.from(
+                          team.completionStages,
+                        ),
+                      );
+                    });
+                    widget.onUpdate(team);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Member added successfully'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  } else {
+                    final errorMsg = result?['error'] ?? 'Failed to add member';
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(errorMsg),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                },
+                child: const Text('Add'),
+              ),
+            ],
+          ),
+    );
   }
 
   void _deleteProject() {
@@ -635,6 +723,12 @@ class _ProjectDetailsPageState extends State<ProjectDetailsPage> {
         backgroundColor: Colors.amber[700],
         title: Text(team.projectName),
         actions: [
+          if (_memberCount < maxMembers)
+            IconButton(
+              icon: const Icon(Icons.person_add, color: Colors.white),
+              tooltip: 'Add Member',
+              onPressed: _showAddMemberDialog,
+            ),
           IconButton(
             icon: const Icon(Icons.delete, color: Colors.white),
             onPressed: _deleteProject,
@@ -770,6 +864,19 @@ class _ProjectDetailsPageState extends State<ProjectDetailsPage> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _UpperCaseTextFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    return TextEditingValue(
+      text: newValue.text.toUpperCase(),
+      selection: newValue.selection,
     );
   }
 }

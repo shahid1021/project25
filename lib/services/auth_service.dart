@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:project_management/config/api_config.dart';
+import 'package:project_management/services/profile_photo_service.dart';
 
 class AuthService {
   // REGISTER
@@ -10,22 +11,28 @@ class AuthService {
     required String lastName,
     required String email,
     required String password,
+    String? registerNumber,
   }) async {
     try {
       final uri = Uri.parse('${ApiConfig.baseUrl}/User/register');
 
       print('REGISTER URL => $uri');
 
+      final body = {
+        'firstName': firstName,
+        'lastName': lastName,
+        'email': email,
+        'password': password,
+      };
+      if (registerNumber != null && registerNumber.isNotEmpty) {
+        body['registerNumber'] = registerNumber;
+      }
+
       final response = await http
           .post(
             uri,
             headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'firstName': firstName,
-              'lastName': lastName,
-              'email': email,
-              'password': password,
-            }),
+            body: jsonEncode(body),
           )
           .timeout(const Duration(seconds: 30));
 
@@ -79,6 +86,23 @@ class AuthService {
         );
         await prefs.setString('lastName', (data['lastName'] ?? '').toString());
         await prefs.setString('email', email);
+        await prefs.setString(
+          'registerNumber',
+          (data['registerNumber'] ?? '').toString(),
+        );
+
+        // Cache profile photo settings from login response
+        await prefs.setString(
+          'profilePhotoType',
+          (data['profilePhotoType'] ?? 'none').toString(),
+        );
+        await prefs.setInt(
+          'profileAvatarIndex',
+          data['profileAvatarIndex'] ?? 0,
+        );
+
+        // Sync full profile photo (downloads image if needed)
+        ProfilePhotoService.syncOnLogin(email);
 
         return data['role']; // Student / Teacher / Admin
       }
@@ -131,6 +155,100 @@ class AuthService {
       }
     } on Exception catch (e) {
       print('UPDATE NAME ERROR => $e');
+      return {'success': false, 'message': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  // FORGOT PASSWORD - Send OTP
+  Future<Map<String, dynamic>> forgotPassword(String email) async {
+    try {
+      final uri = Uri.parse('${ApiConfig.baseUrl}/User/forgot-password');
+      final response = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': email}),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': data['message'] ?? 'OTP sent'};
+      } else if (response.statusCode == 404) {
+        return {
+          'success': false,
+          'message': 'No account found with this email',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Failed to send OTP',
+        };
+      }
+    } on Exception catch (e) {
+      return {'success': false, 'message': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  // FORGOT PASSWORD - Verify OTP
+  Future<Map<String, dynamic>> verifyOtp(String email, String otp) async {
+    try {
+      final uri = Uri.parse('${ApiConfig.baseUrl}/User/verify-otp');
+      final response = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': email, 'otp': otp}),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': data['message'] ?? 'OTP verified'};
+      } else {
+        return {'success': false, 'message': data['message'] ?? 'Invalid OTP'};
+      }
+    } on Exception catch (e) {
+      return {'success': false, 'message': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  // FORGOT PASSWORD - Reset Password
+  Future<Map<String, dynamic>> resetPassword(
+    String email,
+    String otp,
+    String newPassword,
+  ) async {
+    try {
+      final uri = Uri.parse('${ApiConfig.baseUrl}/User/reset-password');
+      final response = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'email': email,
+              'otp': otp,
+              'newPassword': newPassword,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'message': data['message'] ?? 'Password reset successful',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Failed to reset password',
+        };
+      }
+    } on Exception catch (e) {
       return {'success': false, 'message': 'Network error: ${e.toString()}'};
     }
   }

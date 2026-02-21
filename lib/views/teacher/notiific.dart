@@ -4,6 +4,7 @@ import 'package:project_management/views/students/home_screen.dart';
 import 'package:project_management/config/api_config.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class NotificationItem {
   final String userName;
@@ -35,19 +36,34 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   final TextEditingController _messageController = TextEditingController();
   bool _isSending = false;
   bool isLoading = true;
+  String teacherEmail = '';
+  String teacherName = '';
 
   @override
   void initState() {
     super.initState();
     todayNotifications = [];
+    _loadTeacherInfo();
+  }
+
+  Future<void> _loadTeacherInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    teacherEmail = prefs.getString('email') ?? '';
+    final firstName = prefs.getString('firstName') ?? '';
+    final lastName = prefs.getString('lastName') ?? '';
+    teacherName = '$firstName $lastName'.trim();
+    if (teacherName.isEmpty) teacherName = 'Teacher';
     loadMessagesFromDatabase();
   }
 
   Future<void> loadMessagesFromDatabase() async {
     try {
-      final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/notifications/get'),
-      );
+      // Teacher view: only load notifications sent by this teacher
+      final url =
+          teacherEmail.isNotEmpty
+              ? '${ApiConfig.baseUrl}/notifications/get?teacherEmail=${Uri.encodeComponent(teacherEmail)}'
+              : '${ApiConfig.baseUrl}/notifications/get';
+      final response = await http.get(Uri.parse(url));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -94,7 +110,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       builder:
           (context) => AlertDialog(
             title: const Text(
-              'Send Message to All Students',
+              'Send Message to Your Students',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: Colors.black,
@@ -170,8 +186,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'message': _messageController.text,
-          'teacherName': 'Teacher',
-          'teacherEmail': 'teacher@school.edu',
+          'teacherName': teacherName,
+          'teacherEmail': teacherEmail,
         }),
       );
 
@@ -186,7 +202,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Message sent to all students!'),
+            content: Text('Message sent to your students!'),
             backgroundColor: Colors.green,
           ),
         );

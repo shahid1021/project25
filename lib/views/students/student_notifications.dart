@@ -27,16 +27,22 @@ class _StudentNotificationsScreenState
 
   Future<void> loadMessages() async {
     try {
-      final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/notifications/get'),
-      );
+      // Load student's registerNumber to get scoped notifications
+      final prefs = await SharedPreferences.getInstance();
+      final registerNumber = prefs.getString('registerNumber') ?? '';
+
+      // Student view: only get notifications from their teacher + admin broadcasts
+      final url =
+          registerNumber.isNotEmpty
+              ? '${ApiConfig.baseUrl}/notifications/get?registerNumber=${Uri.encodeComponent(registerNumber)}'
+              : '${ApiConfig.baseUrl}/notifications/get';
+      final response = await http.get(Uri.parse(url));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final notificationsList = data['notifications'] as List;
 
         // Check for new messages
-        final prefs = await SharedPreferences.getInstance();
         final lastSeenCount = prefs.getInt('lastSeenMessageCount') ?? 0;
         final currentCount = notificationsList.length;
 

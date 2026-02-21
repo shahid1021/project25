@@ -1,6 +1,7 @@
 import 'package:project_management/views/auth/login_screen.dart';
 import 'package:project_management/views/auth/navigation.dart';
 import 'package:project_management/views/teacher/nav.dart';
+import 'package:project_management/views/admin/admin_panel.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
@@ -38,6 +39,11 @@ class _SplashScreenState extends State<SplashScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const NavigationPage()),
+        );
+      } else if (role == 'Admin') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const AdminPanel()),
         );
       } else {
         // Unknown role, go to login
@@ -86,16 +92,12 @@ class _SplashScreenState extends State<SplashScreen> {
                   fit: BoxFit.contain,
                 ),
               ),
-              const SizedBox(height: 20),
-              // const Text(
-              //   'App Name',
-              //   style: TextStyle(
-              //     fontSize: 24,
-              //     fontWeight: FontWeight.bold,
-              //     color: Colors.white,
-              //     letterSpacing: 1.5,
-              //   ),
-              // ),
+              const SizedBox(height: 5),
+              Image.asset(
+                'assets/images/name.png',
+                width: 220,
+                fit: BoxFit.contain,
+              ),
               const SizedBox(height: 40),
             ],
           ),

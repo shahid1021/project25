@@ -7,6 +7,7 @@ import 'package:project_management/config/api_config.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:project_management/views/students/about_page.dart';
+import 'package:project_management/views/shared/profile_avatar.dart';
 
 // ================= FETCH PROFILE =================
 Future<Map<String, dynamic>> fetchProfile() async {
@@ -78,6 +79,7 @@ class _StudentProfileState extends State<StudentProfile> {
       appBar: AppBar(
         backgroundColor: const Color(0xFFE5A72E),
         elevation: 0,
+        automaticallyImplyLeading: false,
         actions: [
           PopupMenuButton(
             icon: const Icon(Icons.more_vert, color: Colors.black, size: 26),
@@ -210,14 +212,9 @@ class _StudentProfileState extends State<StudentProfile> {
                                     ),
                                   ],
                                 ),
-                                child: CircleAvatar(
+                                child: ProfileAvatarWidget(
                                   radius: width * 0.11,
-                                  backgroundColor: Colors.white,
-                                  child: Icon(
-                                    Icons.person,
-                                    size: width * 0.18,
-                                    color: const Color(0xFFE5A72E),
-                                  ),
+                                  onChanged: () => setState(() {}),
                                 ),
                               ),
                             ),
@@ -246,6 +243,20 @@ class _StudentProfileState extends State<StudentProfile> {
                             color: Colors.black54,
                           ),
                         ),
+
+                        if ((user['registerNumber'] ?? '')
+                            .toString()
+                            .isNotEmpty)
+                          Padding(
+                            padding: EdgeInsets.only(top: height * 0.005),
+                            child: Text(
+                              user['registerNumber'],
+                              style: TextStyle(
+                                fontSize: width * 0.035,
+                                color: Colors.black54,
+                              ),
+                            ),
+                          ),
 
                         SizedBox(height: height * 0.04),
 

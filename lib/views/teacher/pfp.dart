@@ -7,6 +7,7 @@ import 'package:project_management/config/api_config.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:project_management/views/students/about_page.dart';
+import 'package:project_management/views/shared/profile_avatar.dart';
 
 // ================= FETCH PROFILE =================
 Future<Map<String, dynamic>> fetchProfile() async {
@@ -210,14 +211,9 @@ class _TeacherProfileState extends State<TeacherProfile> {
                                     ),
                                   ],
                                 ),
-                                child: CircleAvatar(
+                                child: ProfileAvatarWidget(
                                   radius: width * 0.11,
-                                  backgroundColor: Colors.white,
-                                  child: Icon(
-                                    Icons.person,
-                                    size: width * 0.18,
-                                    color: const Color(0xFFE5A72E),
-                                  ),
+                                  onChanged: () => setState(() {}),
                                 ),
                               ),
                             ),

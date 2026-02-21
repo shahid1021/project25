@@ -9,17 +9,34 @@ class AdminProjectsPage extends StatefulWidget {
   State<AdminProjectsPage> createState() => _AdminProjectsPageState();
 }
 
-class _AdminProjectsPageState extends State<AdminProjectsPage> {
+class _AdminProjectsPageState extends State<AdminProjectsPage>
+    with SingleTickerProviderStateMixin {
   final AdminService _adminService = AdminService();
   List<dynamic> projects = [];
   List<dynamic> filteredProjects = [];
   bool isLoading = true;
   String searchQuery = '';
-  String filterStatus = 'All';
+  late TabController _tabController;
+  int _selectedTab = 0;
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        setState(() {
+          _selectedTab = _tabController.index;
+          _applyFilters();
+        });
+      }
+    });
     _loadProjects();
   }
 
@@ -47,10 +64,12 @@ class _AdminProjectsPageState extends State<AdminProjectsPage> {
                 searchQuery.toLowerCase(),
               );
 
-          final matchesStatus =
-              filterStatus == 'All' || project['status'] == filterStatus;
+          // Tab 0 = Ongoing (not completed), Tab 1 = Saved Projects (completed)
+          final status = (project['status'] ?? '').toString();
+          final matchesTab =
+              _selectedTab == 0 ? status != 'Completed' : status == 'Completed';
 
-          return matchesSearch && matchesStatus;
+          return matchesSearch && matchesTab;
         }).toList();
   }
 
@@ -545,7 +564,7 @@ class _AdminProjectsPageState extends State<AdminProjectsPage> {
       padding: const EdgeInsets.all(24),
       child: Column(
         children: [
-          // ==================== SEARCH & FILTER ====================
+          // ==================== SEARCH & ACTIONS ====================
           Row(
             children: [
               Expanded(
@@ -570,31 +589,6 @@ class _AdminProjectsPageState extends State<AdminProjectsPage> {
                       horizontal: 16,
                       vertical: 14,
                     ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: filterStatus,
-                    items:
-                        ['All', 'Completed', 'In Progress']
-                            .map(
-                              (s) => DropdownMenuItem(value: s, child: Text(s)),
-                            )
-                            .toList(),
-                    onChanged: (val) {
-                      setState(() {
-                        filterStatus = val ?? 'All';
-                        _applyFilters();
-                      });
-                    },
                   ),
                 ),
               ),
@@ -626,6 +620,53 @@ class _AdminProjectsPageState extends State<AdminProjectsPage> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 16),
+          // ==================== TABS ====================
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: TabBar(
+              controller: _tabController,
+              labelColor: Colors.white,
+              unselectedLabelColor: Colors.grey.shade700,
+              indicatorSize: TabBarIndicatorSize.tab,
+              indicator: BoxDecoration(
+                color: const Color(0xFFE5A72E),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              dividerColor: Colors.transparent,
+              tabs: const [
+                Tab(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.timelapse_rounded, size: 18),
+                      SizedBox(width: 8),
+                      Text(
+                        'Ongoing',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+                Tab(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.folder_rounded, size: 18),
+                      SizedBox(width: 8),
+                      Text(
+                        'Saved Projects',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 8),
           Align(
