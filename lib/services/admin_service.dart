@@ -156,7 +156,7 @@ class AdminService {
   // ==================== NOTIFICATIONS ====================
   Future<List<dynamic>> getAllNotifications() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/notifications/get'));
+      final response = await http.get(Uri.parse('$baseUrl/notifications'));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return data['notifications'] ?? [];

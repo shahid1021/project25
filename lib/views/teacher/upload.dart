@@ -197,7 +197,7 @@ class _UploadPageState extends State<UploadPage> {
               color: Colors.black,
               size: 28,
             ),
-            tooltip: 'Previous Year Projects',
+            tooltip: 'Projects Done by students',
             onPressed: () {
               Navigator.push(
                 context,
@@ -1127,8 +1127,12 @@ class _PreviousYearProjectsPageState extends State<PreviousYearProjectsPage> {
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text(
-          'Previous Year Projects',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          'Projects done by students',
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
         ),
         backgroundColor: const Color(0xFFE5A72E),
         elevation: 0,

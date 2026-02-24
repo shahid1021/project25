@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'dart:convert';
+import 'dart:typed_data';
+import 'package:file_picker/file_picker.dart';
 import 'package:project_management/config/api_config.dart';
 
 class AdminTrendingProjectsPage extends StatefulWidget {
@@ -20,6 +23,10 @@ class _AdminTrendingProjectsPageState extends State<AdminTrendingProjectsPage> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _abstractionController = TextEditingController();
   bool showAddForm = false;
+
+  // PDF file pick state
+  String? _pickedFileName;
+  Uint8List? _pickedFileBytes;
 
   @override
   void initState() {
@@ -69,31 +76,101 @@ class _AdminTrendingProjectsPageState extends State<AdminTrendingProjectsPage> {
     }
   }
 
+  Future<void> _pickPdfFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf', 'docx'],
+      withData: true,
+    );
+    if (result != null && result.files.single.bytes != null) {
+      setState(() {
+        _pickedFileName = result.files.single.name;
+        _pickedFileBytes = result.files.single.bytes;
+      });
+    }
+  }
+
+  void _clearPickedFile() {
+    setState(() {
+      _pickedFileName = null;
+      _pickedFileBytes = null;
+    });
+  }
+
   Future<void> addTrendingProject() async {
     final title = _titleController.text.trim();
     final abstraction = _abstractionController.text.trim();
-    if (title.isEmpty || abstraction.isEmpty) {
+
+    if (title.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Title is required')));
+      return;
+    }
+
+    if (abstraction.isEmpty && _pickedFileBytes == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Title and abstraction required')),
+        const SnackBar(
+          content: Text('Provide an abstraction or upload a PDF file'),
+        ),
       );
       return;
     }
-    final response = await http.post(
-      Uri.parse('${ApiConfig.baseUrl}/admin/standalone-trending-projects'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({'title': title, 'abstraction': abstraction}),
-    );
-    if (response.statusCode == 200) {
-      setState(() {
-        showAddForm = false;
-        _titleController.clear();
-        _abstractionController.clear();
-      });
-      fetchTrendingProjects();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to add trending project')),
+
+    try {
+      final uri = Uri.parse(
+        '${ApiConfig.baseUrl}/admin/standalone-trending-projects',
       );
+      final request = http.MultipartRequest('POST', uri);
+
+      request.fields['title'] = title;
+      if (abstraction.isNotEmpty) {
+        request.fields['abstraction'] = abstraction;
+      }
+
+      if (_pickedFileBytes != null && _pickedFileName != null) {
+        final extension = _pickedFileName!.split('.').last.toLowerCase();
+        final mimeType =
+            extension == 'pdf'
+                ? MediaType('application', 'pdf')
+                : MediaType(
+                  'application',
+                  'vnd.openxmlformats-officedocument.wordprocessingml.document',
+                );
+
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'File',
+            _pickedFileBytes!,
+            filename: _pickedFileName!,
+            contentType: mimeType,
+          ),
+        );
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        setState(() {
+          showAddForm = false;
+          _titleController.clear();
+          _abstractionController.clear();
+          _clearPickedFile();
+        });
+        fetchTrendingProjects();
+      } else {
+        final body = json.decode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(body['message'] ?? 'Failed to add trending project'),
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -116,6 +193,11 @@ class _AdminTrendingProjectsPageState extends State<AdminTrendingProjectsPage> {
                   onPressed: () {
                     setState(() {
                       showAddForm = !showAddForm;
+                      if (!showAddForm) {
+                        _titleController.clear();
+                        _abstractionController.clear();
+                        _clearPickedFile();
+                      }
                     });
                   },
                   child: Text(
@@ -140,8 +222,55 @@ class _AdminTrendingProjectsPageState extends State<AdminTrendingProjectsPage> {
                   TextField(
                     controller: _abstractionController,
                     decoration: const InputDecoration(
-                      labelText: 'Project Abstraction',
+                      labelText:
+                          'Project Abstraction (optional if PDF uploaded)',
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: _pickPdfFile,
+                        icon: const Icon(Icons.upload_file),
+                        label: const Text('Upload PDF / DOCX'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blueGrey,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      if (_pickedFileName != null)
+                        Expanded(
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.picture_as_pdf,
+                                color: Colors.red,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  _pickedFileName!,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.close,
+                                  size: 18,
+                                  color: Colors.red,
+                                ),
+                                onPressed: _clearPickedFile,
+                                tooltip: 'Remove file',
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   ElevatedButton(

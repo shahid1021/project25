@@ -164,9 +164,16 @@ class _DfdSupportScreenState extends State<DfdSupportScreen> {
           });
         }
       } else {
+        String errorMsg = 'Error: ${response.statusCode}';
+        try {
+          final errorJson = jsonDecode(responseBody);
+          if (errorJson['error'] != null) {
+            errorMsg = errorJson['error'];
+          }
+        } catch (_) {}
         setState(() {
           isLoading = false;
-          dfdGuidance = 'Error: ${response.statusCode}\n${responseBody}';
+          dfdGuidance = errorMsg;
         });
       }
     } catch (e) {

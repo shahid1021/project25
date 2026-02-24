@@ -74,15 +74,25 @@ class _AdminDashboardState extends State<AdminDashboard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ==================== OVERVIEW CARDS ====================
-            const Text(
-              'Overview',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1E1E2D),
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Overview',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E1E2D),
+                  ),
+                ),
+                IconButton(
+                  onPressed: _loadStats,
+                  icon: const Icon(Icons.refresh_rounded),
+                  tooltip: 'Refresh',
+                  color: const Color(0xFFE5A72E),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
             LayoutBuilder(
               builder: (context, constraints) {
                 final crossAxisCount =
@@ -146,6 +156,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       '${stats!['totalNotifications'] ?? 0}',
                       Icons.notifications_rounded,
                       const Color(0xFF9C27B0),
+                    ),
+                    _buildStatCard(
+                      'Uploaded',
+                      '${stats!['uploadedProjects'] ?? 0}',
+                      Icons.cloud_upload_rounded,
+                      const Color(0xFF607D8B),
                     ),
                   ],
                 );
@@ -219,8 +235,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   String _getCompletionRate() {
-    final total = stats!['totalProjects'] ?? 0;
     final completed = stats!['completedProjects'] ?? 0;
+    final ongoing = stats!['ongoingProjects'] ?? 0;
+    final total = completed + ongoing;
     if (total == 0) return '0%';
     return '${((completed / total) * 100).toStringAsFixed(1)}%';
   }
