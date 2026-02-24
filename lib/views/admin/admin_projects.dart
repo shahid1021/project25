@@ -734,6 +734,7 @@ class _AdminProjectsPageState extends State<AdminProjectsPage>
 
   Widget _buildProjectCard(Map<String, dynamic> project) {
     final isCompleted = project['status'] == 'Completed';
+    final isTrending = project['isTrending'] == true;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -813,6 +814,64 @@ class _AdminProjectsPageState extends State<AdminProjectsPage>
                   foregroundColor: const Color(0xFFE5A72E),
                 ),
               ),
+              if (!isTrending)
+                TextButton.icon(
+                  onPressed: () async {
+                    final success = await _adminService.setTrending(
+                      project['projectId'],
+                    );
+                    if (success) {
+                      _loadProjects();
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Marked as trending'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Failed to mark as trending'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.trending_up, size: 16),
+                  label: const Text('Mark Trending'),
+                  style: TextButton.styleFrom(foregroundColor: Colors.blue),
+                ),
+              if (isTrending)
+                TextButton.icon(
+                  onPressed: () async {
+                    final success = await _adminService.unsetTrending(
+                      project['projectId'],
+                    );
+                    if (success) {
+                      _loadProjects();
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Removed from trending'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Failed to remove trending'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.trending_down, size: 16),
+                  label: const Text('Remove Trending'),
+                  style: TextButton.styleFrom(foregroundColor: Colors.orange),
+                ),
               TextButton.icon(
                 onPressed:
                     () => _deleteProject(

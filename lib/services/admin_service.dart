@@ -4,6 +4,30 @@ import 'package:http_parser/http_parser.dart';
 import 'package:project_management/config/api_config.dart';
 
 class AdminService {
+  Future<bool> setTrending(int projectId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/projects/$projectId/set-trending'),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Error setting trending: $e');
+      return false;
+    }
+  }
+
+  Future<bool> unsetTrending(int projectId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/projects/$projectId/unset-trending'),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Error unsetting trending: $e');
+      return false;
+    }
+  }
+
   final String baseUrl = '${ApiConfig.baseUrl}/admin';
 
   // ==================== DASHBOARD STATS ====================

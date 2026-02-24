@@ -61,7 +61,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 0, 0, 0),
+      backgroundColor: const Color.fromARGB(255, 30, 18, 1),
       body: Center(
         child: SingleChildScrollView(
           child: Padding(
@@ -134,7 +134,12 @@ class _LoginPageState extends State<LoginPage> {
                               decoration: InputDecoration(
                                 hintText: 'Email ID',
                                 hintStyle: TextStyle(
-                                  color: Color(0xFFE5A72E).withOpacity(0.7),
+                                  color: Color.fromARGB(
+                                    255,
+                                    232,
+                                    232,
+                                    231,
+                                  ).withOpacity(0.7),
                                   fontSize: 16,
                                 ),
                                 border: InputBorder.none,
@@ -164,7 +169,12 @@ class _LoginPageState extends State<LoginPage> {
                               decoration: InputDecoration(
                                 hintText: 'Password',
                                 hintStyle: TextStyle(
-                                  color: Color(0xFFE5A72E).withOpacity(0.7),
+                                  color: Color.fromARGB(
+                                    255,
+                                    246,
+                                    246,
+                                    246,
+                                  ).withOpacity(0.7),
                                   fontSize: 16,
                                 ),
                                 border: InputBorder.none,
@@ -177,7 +187,7 @@ class _LoginPageState extends State<LoginPage> {
                                     _passwordVisible
                                         ? Icons.visibility
                                         : Icons.visibility_off,
-                                    color: Color(0xFFE5A72E),
+                                    color: Color.fromARGB(255, 255, 255, 254),
                                   ),
                                   onPressed: () {
                                     setState(() {
@@ -358,7 +368,7 @@ class _LoginPageState extends State<LoginPage> {
                               Text(
                                 "Don’t have an account? ",
                                 style: TextStyle(
-                                  color: Color(0xFFE5A72E),
+                                  color: Color.fromARGB(255, 249, 249, 248),
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),

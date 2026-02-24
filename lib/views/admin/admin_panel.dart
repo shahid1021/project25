@@ -3,6 +3,7 @@ import 'package:project_management/views/admin/admin_dashboard.dart';
 import 'package:project_management/views/admin/admin_users.dart';
 import 'package:project_management/views/admin/admin_projects.dart';
 import 'package:project_management/views/admin/admin_notifications.dart';
+import 'package:project_management/views/admin/admin_trending_projects.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:project_management/views/auth/login_screen.dart';
 
@@ -21,6 +22,7 @@ class _AdminPanelState extends State<AdminPanel> {
     AdminDashboard(),
     AdminUsersPage(),
     AdminProjectsPage(),
+    AdminTrendingProjectsPage(),
     AdminNotificationsPage(),
   ];
 
@@ -28,6 +30,7 @@ class _AdminPanelState extends State<AdminPanel> {
     'Dashboard',
     'User Management',
     'Project Management',
+    'Trending Projects',
     'Notifications',
   ];
 
@@ -35,6 +38,7 @@ class _AdminPanelState extends State<AdminPanel> {
     Icons.dashboard_rounded,
     Icons.people_rounded,
     Icons.folder_rounded,
+    Icons.trending_up_rounded,
     Icons.notifications_rounded,
   ];
 
