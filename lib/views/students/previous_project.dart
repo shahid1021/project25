@@ -126,14 +126,21 @@ class _PreviousProjectsScreenState extends State<PreviousProjectsScreen>
           'DEBUG: My projects count = ${myProjects.length}, Senior projects count = ${seniorProjects.length}',
         );
       } else {
-        print('DEBUG: Failed to fetch, loading mock data');
-        // Load mock data on error
-        _loadMockProjects();
+        print('DEBUG: Failed to fetch, status code error');
+        setState(() {
+          myProjects = [];
+          seniorProjects = [];
+          isLoading = false;
+        });
       }
     } catch (e, stacktrace) {
       print('Error loading projects: $e');
       print('Stacktrace: $stacktrace');
-      _loadMockProjects();
+      setState(() {
+        myProjects = [];
+        seniorProjects = [];
+        isLoading = false;
+      });
     }
   }
 
@@ -222,57 +229,6 @@ class _PreviousProjectsScreenState extends State<PreviousProjectsScreen>
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  void _loadMockProjects() {
-    setState(() {
-      myProjects = [
-        CompletedProject(
-          id: '1',
-          title: 'Smart Chat System',
-          abstraction:
-              'An AI-powered chatbot system using NLP and machine learning. Features include conversation history, sentiment analysis, and multi-language support.',
-          description:
-              'A comprehensive chatbot implementation with advanced features.',
-          createdBy: currentUserEmail ?? 'student@example.com',
-          batch: '2024',
-          teamMembers: 'Hudha Reem',
-          dateCompleted: '2024-01-15',
-          status: 'Completed',
-          isStudent: true,
-        ),
-      ];
-      seniorProjects = [
-        CompletedProject(
-          id: '2',
-          title: 'E-Commerce Platform',
-          abstraction:
-              'Full-featured e-commerce platform with product catalog, shopping cart, and payment integration.',
-          description: 'Advanced e-commerce system with AI recommendations.',
-          createdBy: 'Ahmed Hassan',
-          batch: '2023',
-          teamMembers: 'Ahmed Hassan, Zainab',
-          dateCompleted: '2023-12-10',
-          status: 'Completed',
-          isStudent: false,
-        ),
-        CompletedProject(
-          id: '3',
-          title: 'Data Analytics Dashboard',
-          abstraction:
-              'Real-time analytics dashboard for visualizing business metrics and KPIs.',
-          description:
-              'Comprehensive analytics system with predictive features.',
-          createdBy: 'Fatima Ali',
-          batch: '2023',
-          teamMembers: 'Fatima Ali, Omar',
-          dateCompleted: '2023-11-20',
-          status: 'Completed',
-          isStudent: false,
-        ),
-      ];
-      isLoading = false;
-    });
   }
 
   @override

@@ -357,20 +357,26 @@ class _AdminPanelState extends State<AdminPanel> {
                   ),
                   child: Row(
                     children: [
-                      Text(
-                        _titles[_selectedIndex],
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1E1E2D),
+                      Flexible(
+                        child: Text(
+                          _titles[_selectedIndex],
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E1E2D),
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const Spacer(),
-                      Text(
-                        'Welcome, $adminName',
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
-                          fontSize: 14,
+                      const SizedBox(width: 16),
+                      Flexible(
+                        child: Text(
+                          'Welcome, $adminName',
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 14,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       const SizedBox(width: 16),

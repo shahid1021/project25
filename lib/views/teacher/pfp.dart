@@ -68,7 +68,14 @@ class TeacherProfile extends StatefulWidget {
 }
 
 class _TeacherProfileState extends State<TeacherProfile> {
+  late Future<Map<String, dynamic>> _profileFuture;
+
   @override
+  void initState() {
+    super.initState();
+    _profileFuture = fetchProfile();
+  }
+
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final width = size.width;
@@ -128,7 +135,7 @@ class _TeacherProfileState extends State<TeacherProfile> {
       ),
       body: SafeArea(
         child: FutureBuilder(
-          future: fetchProfile(),
+          future: _profileFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
